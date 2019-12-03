@@ -1,0 +1,59 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "protos/echo.proto",
+    "version": "version not set"
+  },
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/api-gw/v1/echo/echo": {
+      "post": {
+        "operationId": "Echo",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/genEchoResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/genEchoRequest"
+            }
+          }
+        ],
+        "tags": [
+          "EchoService"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "genEchoRequest": {
+      "type": "object",
+      "properties": {
+        "Message": {
+          "type": "string"
+        }
+      }
+    },
+    "genEchoResponse": {
+      "type": "object",
+      "properties": {
+        "Message": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

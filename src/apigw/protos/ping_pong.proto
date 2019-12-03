@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package apigw.protos.gen;
+
+import "google/api/annotations.proto";
+
+service PingPongService {
+	rpc Ping(PingPongRequest) returns (PingPongResponse) {
+	    option (google.api.http) = {
+              post: "/api-gw/v1/pingpong/ping"
+              body: "*"
+        };
+	}
+	rpc Pong(PingPongRequest) returns (PingPongResponse) {
+	    option (google.api.http) = {
+          post: "/api-gw/v1/pingpong/pong"
+          body: "*"
+        };
+	}
+}
+
+enum PingPongType {
+    PING = 0;
+    PONG = 1;
+}
+
+message PingPongRequest {
+    string Note = 1;
+    PingPongType Type = 2;
+}
+
+message PingPongResponse {
+    string Message = 1;
+    PingPongType Type = 2;
+}

@@ -1,0 +1,99 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "protos/ping_pong.proto",
+    "version": "version not set"
+  },
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/api-gw/v1/pingpong/ping": {
+      "post": {
+        "operationId": "Ping",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/genPingPongResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/genPingPongRequest"
+            }
+          }
+        ],
+        "tags": [
+          "PingPongService"
+        ]
+      }
+    },
+    "/api-gw/v1/pingpong/pong": {
+      "post": {
+        "operationId": "Pong",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/genPingPongResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/genPingPongRequest"
+            }
+          }
+        ],
+        "tags": [
+          "PingPongService"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "genPingPongRequest": {
+      "type": "object",
+      "properties": {
+        "Note": {
+          "type": "string"
+        },
+        "Type": {
+          "$ref": "#/definitions/genPingPongType"
+        }
+      }
+    },
+    "genPingPongResponse": {
+      "type": "object",
+      "properties": {
+        "Message": {
+          "type": "string"
+        },
+        "Type": {
+          "$ref": "#/definitions/genPingPongType"
+        }
+      }
+    },
+    "genPingPongType": {
+      "type": "string",
+      "enum": [
+        "PING",
+        "PONG"
+      ],
+      "default": "PING"
+    }
+  }
+}
