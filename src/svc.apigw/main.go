@@ -1,7 +1,7 @@
 package main
 
 import (
-	pb "apigw/protos/gen"
+	protos "common/svcprotos/gen"
 	"context"
 	"fmt"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -26,7 +26,7 @@ func startProxy(httpEP string, grpcEPs []string) error {
 	for _, grpcEP := range grpcEPs {
 		fmt.Printf("Registering GRPC server address=%s\n", grpcEP)
 
-		err := pb.RegisterPingPongServiceHandlerFromEndpoint(ctx, mux, grpcEP, opts)
+		err := protos.RegisterPingPongServiceHandlerFromEndpoint(ctx, mux, grpcEP, opts)
 		if err != nil {
 			return err
 		}

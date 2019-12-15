@@ -1,13 +1,13 @@
 package main
 
 import (
-	pb "apigw/protos/gen"
 	"bufio"
+	protos "common/svcprotos/gen"
 	"fmt"
 	"log"
 	"os"
-	"pingpong/client"
 	"strconv"
+	"svc.pingpong/client"
 )
 
 const (
@@ -21,8 +21,7 @@ var (
 	reader        = bufio.NewReader(os.Stdin)
 	serverAddress string
 	port          int
-	resp          *pb.PingPongResponse
-	err           error
+	resp          *protos.PingPongResponse
 )
 
 func displayMenu() int {

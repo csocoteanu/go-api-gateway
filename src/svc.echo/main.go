@@ -1,12 +1,12 @@
 package main
 
 import (
-	pb "apigw/protos/gen"
+	protos "common/svcprotos/gen"
 	"fmt"
 	"google.golang.org/grpc"
 	"log"
 	"net"
-	"pingpong/service"
+	"svc.echo/service"
 )
 
 func main() {
@@ -17,11 +17,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
-	grpcServer := grpc.NewServer()
-	pingPongService := service.NewPingPongService()
-	pb.RegisterPingPongServiceServer(grpcServer, pingPongService)
 
-	// TODO: determine whether to use TLS or not
+	grpcServer := grpc.NewServer()
+	echoService := service.NewEchoService()
+
+	protos.RegisterEchoServiceServer(grpcServer, echoService)
 
 	err = grpcServer.Serve(sock)
 	if err != nil {

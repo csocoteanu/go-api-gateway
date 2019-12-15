@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package discovery.protos;
+
+service RegistryService {
+    rpc Register(RegisterRequest) returns (RegisterResponse) {}
+    rpc Unregister(UnregisterRequest) returns (UnregisterResponse) {}
+}
+
+service RegistrantService {
+    rpc HeartBeat(HeartbeatRequest) returns (HeartbeatResponse) {}
+}
+
+message RegisterRequest {
+    string hostname = 1;
+    uint32 port = 2;
+    string serviceName = 3;
+}
+
+message RegisterResponse {
+    string Message = 1;
+    bool Success = 2;
+    repeated Error Errors = 3;
+}
+
+message UnregisterRequest {
+    string serviceName = 1;
+}
+
+message UnregisterResponse {
+    string Message = 1;
+    bool Success = 2;
+    repeated Error Errors = 3;
+}
+
+message HeartbeatRequest {
+    string Message = 1;
+}
+
+message HeartbeatResponse {
+    string Message = 1;
+    bool Success = 2;
+    repeated Error Errors = 3;
+}
+
+message Error {
+   uint32 Code = 1;
+   string Message = 2;
+}
