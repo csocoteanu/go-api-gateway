@@ -2,33 +2,36 @@ package main
 
 import (
 	"bufio"
-	protos "common/svcprotos/gen"
+	"common/clients/echo"
+	"common/clients/pingpong"
 	"fmt"
 	"log"
 	"os"
+	"os/user"
+	"reflect"
 	"strconv"
-	"svc.pingpong/client"
 )
 
 const (
 	SendPing = 1
 	SendPong = 2
-	Exit     = 3
-	Invalid  = 4
+	SendEcho = 3
+	Exit     = 4
+	Invalid  = 5
 )
 
 var (
-	reader        = bufio.NewReader(os.Stdin)
-	serverAddress string
-	port          int
-	resp          *protos.PingPongResponse
+	reader                                   = bufio.NewReader(os.Stdin)
+	pingPongServerAddress, echoServerAddress = "localhost", "localhost"
+	pingPongPort, echoPort                   = 9091, 9090
 )
 
 func displayMenu() int {
 	fmt.Println("Choose an option from below:")
 	fmt.Println("[1]. Send ping")
 	fmt.Println("[2]. Send pong")
-	fmt.Println("[3]. Exit")
+	fmt.Println("[3]. Send echo")
+	fmt.Println("[4]. Exit")
 	fmt.Print("Enter your option: ")
 
 	text, err := reader.ReadString('\n')
@@ -46,7 +49,7 @@ func displayMenu() int {
 		return Invalid
 	}
 
-	if option < 0 || option > 3 {
+	if option < 0 || option >= Exit {
 		return Invalid
 	}
 
@@ -54,30 +57,46 @@ func displayMenu() int {
 }
 
 func main() {
-	serverAddress = "localhost"
-	port = 9090
-
-	fmt.Println("Welcome to Ping-Pong!")
-
-	pingpongClient, err := client.NewPingPongClient(serverAddress, port)
+	currentUser, err := user.Current()
 	if err != nil {
-		log.Fatalf("Failed starting %s[%d]", serverAddress, port)
+		log.Fatalf("Failed retrieving current logged user! ERR-%+v", err)
+	}
+	userName := "<current user>"
+	if currentUser != nil {
+		userName = currentUser.Name
+	}
+
+	fmt.Printf("Welcome %s!\n", userName)
+
+	echoClient, err := echo.NewClient(echoServerAddress, echoPort)
+	if err != nil {
+		log.Fatalf("Failed starting ping-pong client %s[%d]! ERR=%+v", echoServerAddress, echoPort, err)
+	}
+
+	pingpongClient, err := pingpong.NewClient(pingPongServerAddress, pingPongPort)
+	if err != nil {
+		log.Fatalf("Failed starting ping-pong client %s[%d]! ERR=%+v", pingPongServerAddress, pingPongPort, err)
 	}
 
 	for {
-		resp = nil
-		option := displayMenu()
+		var response interface{}
+		var option = displayMenu()
 
 		switch option {
 		case SendPing:
-			resp, err = pingpongClient.SendPing("Hi!")
+			response, err = pingpongClient.SendPing("Hi!")
 			if err != nil {
 				fmt.Printf("Error sending ping: %+v", err)
 			}
 		case SendPong:
-			resp, err = pingpongClient.SendPong("Hi!")
+			response, err = pingpongClient.SendPong("Hi!")
 			if err != nil {
 				fmt.Printf("Error sending pong: %+v", err)
+			}
+		case SendEcho:
+			response, err = echoClient.SendEcho(fmt.Sprintf("Hi %s!", userName))
+			if err != nil {
+				fmt.Printf("Error sending echo: %+v", err)
 			}
 		case Invalid:
 			fmt.Printf("Please try again!\n")
@@ -86,8 +105,14 @@ func main() {
 			return
 		}
 
-		if resp != nil {
-			fmt.Printf("Received: %s\n\n", string(resp.Message))
+		if response != nil {
+			r := reflect.ValueOf(response)
+			f := reflect.Indirect(r).FieldByName("Message")
+			message := f.String()
+
+			if len(message) > 0 {
+				fmt.Printf("\n\tReceived: %s\n\n", message)
+			}
 		}
 	}
 }

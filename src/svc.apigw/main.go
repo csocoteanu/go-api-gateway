@@ -1,6 +1,7 @@
 package main
 
 import (
+	discovery "common/discovery/registry"
 	protos "common/svcprotos/gen"
 	"context"
 	"fmt"
@@ -9,6 +10,13 @@ import (
 	"log"
 	"net/http"
 )
+
+type registerCallback func(context.Context, *runtime.ServeMux, string, []grpc.DialOption) (err error)
+
+var services = map[string]registerCallback{
+	"pingpong": protos.RegisterPingPongServiceHandlerFromEndpoint,
+	"echo":     protos.RegisterEchoServiceHandlerFromEndpoint,
+}
 
 func startProxy(httpEP string, grpcEPs []string) error {
 	ctx := context.Background()
@@ -19,18 +27,28 @@ func startProxy(httpEP string, grpcEPs []string) error {
 
 	opts := []grpc.DialOption{grpc.WithInsecure()}
 
+	registry := discovery.NewServiceRegistry("localhost", 8500).(*discovery.ServiceRegistry)
+
 	// Register gRPC server endpoints
 	// Note: Make sure the gRPC server is running properly and accessible
 	mux := runtime.NewServeMux()
 
-	for _, grpcEP := range grpcEPs {
-		fmt.Printf("Registering GRPC server address=%s\n", grpcEP)
+	go func() {
+		for {
+			select {
+			case req := <-registry.GetRegistered():
+				fmt.Printf("Registering GRPC service=%s address=%s\n", req.ServiceName, req.ServiceAddress)
 
-		err := protos.RegisterPingPongServiceHandlerFromEndpoint(ctx, mux, grpcEP, opts)
-		if err != nil {
-			return err
+				cb, ok := services[req.ServiceName]
+				if ok {
+					err := cb(ctx, mux, req.ServiceAddress, opts)
+					if err != nil {
+						fmt.Printf("Error encountered: %s", err.Error())
+					}
+				}
+			}
 		}
-	}
+	}()
 
 	// Start HTTP server (and proxy calls to gRPC server endpoint)
 	return http.ListenAndServe(httpEP, mux)

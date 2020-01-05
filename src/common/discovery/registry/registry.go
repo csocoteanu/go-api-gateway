@@ -20,11 +20,13 @@ const (
 )
 
 type healthChecker struct {
-	hostname    string
-	port        uint32
-	serviceName string
-	ticker      *time.Ticker
-	quit        chan struct{}
+	hostname       string
+	port           uint32
+	serviceName    string
+	serviceAddress string
+	ticker         *time.Ticker
+	quit           chan struct{}
+	tracker        *statusTracker
 }
 
 type statusTracker struct {
@@ -35,16 +37,19 @@ type statusTracker struct {
 }
 
 type registrantInfo struct {
-	serviceName string
-	status      uint8
+	serviceName    string
+	serviceAddress string
+	controlAddress string
+	status         uint8
 }
 
-type serviceRegistry struct {
+type ServiceRegistry struct {
 	hostname           string
 	port               uint32
 	healthCheckers     map[string]*healthChecker
 	healthCheckersLock *sync.Mutex
 	tracker            *statusTracker
+	chanReq            chan discovery.RegisterRequest
 }
 
 // ActiveServicesProvider provides a list of active service names
@@ -55,12 +60,13 @@ type ActiveServicesProvider interface {
 
 // NewServiceRegistry creates a new service registry instance
 func NewServiceRegistry(hostname string, port uint32) discovery.RegistryServiceServer {
-	s := serviceRegistry{
+	s := ServiceRegistry{
 		hostname:           hostname,
 		port:               port,
 		healthCheckers:     make(map[string]*healthChecker),
 		healthCheckersLock: &sync.Mutex{},
 		tracker:            newStatusTracker(),
+		chanReq:            make(chan discovery.RegisterRequest),
 	}
 
 	go func() {
@@ -69,10 +75,16 @@ func NewServiceRegistry(hostname string, port uint32) discovery.RegistryServiceS
 		}
 	}()
 
+	go s.tracker.start()
+
 	return &s
 }
 
-func (s *serviceRegistry) Register(ctx context.Context, req *discovery.RegisterRequest) (*discovery.RegisterResponse, error) {
+func (s *ServiceRegistry) GetRegistered() chan discovery.RegisterRequest {
+	return s.chanReq
+}
+
+func (s *ServiceRegistry) Register(ctx context.Context, req *discovery.RegisterRequest) (*discovery.RegisterResponse, error) {
 	if req.Port == 0 || len(req.Hostname) == 0 || len(req.ServiceName) == 0 {
 		return nil, utils.ErrInvalidRequest
 	}
@@ -84,7 +96,8 @@ func (s *serviceRegistry) Register(ctx context.Context, req *discovery.RegisterR
 	}
 
 	log.Printf("Succesfully registered service=%s", req.ServiceName)
-	s.healthCheckers[req.ServiceName] = newHealthChecker(req)
+	s.healthCheckers[req.ServiceName] = newHealthChecker(req, s.tracker)
+	s.chanReq <- *req
 
 	resp := discovery.RegisterResponse{
 		Message: utils.ACK,
@@ -93,7 +106,7 @@ func (s *serviceRegistry) Register(ctx context.Context, req *discovery.RegisterR
 	return &resp, nil
 }
 
-func (s *serviceRegistry) Unregister(ctx context.Context, req *discovery.UnregisterRequest) (*discovery.UnregisterResponse, error) {
+func (s *ServiceRegistry) Unregister(ctx context.Context, req *discovery.UnregisterRequest) (*discovery.UnregisterResponse, error) {
 	if len(req.ServiceName) == 0 {
 		return nil, utils.ErrInvalidRequest
 	}
@@ -110,6 +123,7 @@ func (s *serviceRegistry) Unregister(ctx context.Context, req *discovery.Unregis
 	log.Printf("Succesfully unregistered service=%s", req.ServiceName)
 	delete(s.healthCheckers, req.ServiceName)
 	hChecker.stopHealthCheck()
+	s.tracker.remChan <- registrantInfo{serviceName: req.ServiceName}
 
 	resp := discovery.UnregisterResponse{
 		Success: true,
@@ -118,11 +132,11 @@ func (s *serviceRegistry) Unregister(ctx context.Context, req *discovery.Unregis
 	return &resp, nil
 }
 
-func (s *serviceRegistry) GetActiveServices() []string {
+func (s *ServiceRegistry) GetActiveServices() []string {
 	return s.tracker.getServiceNameByStatus(serviceActive)
 }
 
-func (s *serviceRegistry) listen() error {
+func (s *ServiceRegistry) listen() error {
 	log.Printf("Starting registry on port=%d", s.port)
 	sock, err := net.Listen("tcp", fmt.Sprintf("%s:%d", s.hostname, s.port))
 	if err != nil {
@@ -179,13 +193,14 @@ func (t *statusTracker) getServiceNameByStatus(statusType uint8) []string {
 	return result
 }
 
-func newHealthChecker(req *discovery.RegisterRequest) *healthChecker {
+func newHealthChecker(req *discovery.RegisterRequest, tracker *statusTracker) *healthChecker {
 	r := healthChecker{
-		hostname:    req.Hostname,
-		serviceName: req.ServiceName,
-		port:        req.Port,
-		ticker:      time.NewTicker(1 * time.Minute),
-		quit:        make(chan struct{}),
+		hostname:       req.Hostname,
+		serviceName:    req.ServiceName,
+		serviceAddress: req.ServiceAddress,
+		port:           req.Port,
+		quit:           make(chan struct{}),
+		tracker:        tracker,
 	}
 
 	go r.startHealthCheck()
@@ -194,16 +209,30 @@ func newHealthChecker(req *discovery.RegisterRequest) *healthChecker {
 }
 
 func (r *healthChecker) startHealthCheck() {
+	r.ticker = time.NewTicker(1 * time.Minute)
+
 	for {
 		select {
 		case <-r.quit:
+			log.Printf("Quiting healthcheck for %s.....", r.serviceName)
 			r.ticker.Stop()
 			return
 		case <-r.ticker.C:
+			status := serviceActive
+			log.Printf("Sending heartbeat for %s.......", r.serviceName)
 			if err := r.sendHeartBeat(); err != nil {
 				log.Printf("Error sending heartbeat to service=%s! err=%s", r.serviceName, err.Error())
-				// TODO: set serviceInactive
+				status = serviceInactive
 			}
+
+			info := registrantInfo{
+				serviceName:    r.serviceName,
+				serviceAddress: r.serviceAddress,
+				controlAddress: fmt.Sprintf("%s:%d", r.hostname, r.port),
+				status:         uint8(status),
+			}
+
+			r.tracker.addChan <- info
 		}
 	}
 }

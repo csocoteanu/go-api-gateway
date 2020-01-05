@@ -1,4 +1,4 @@
-package client
+package pingpong
 
 import (
 	protos "common/svcprotos/gen"
@@ -8,20 +8,20 @@ import (
 	"google.golang.org/grpc"
 )
 
-type PingPongClient interface {
+type Client interface {
 	SendPing(note string) (*protos.PingPongResponse, error)
 	SendPong(note string) (*protos.PingPongResponse, error)
 }
 
-type pingpongClient struct {
+type client struct {
 	serverAddress string
 	port          int
 	conn          *grpc.ClientConn
 	grpcClient    protos.PingPongServiceClient
 }
 
-func NewPingPongClient(serverAddress string, port int) (PingPongClient, error) {
-	c := pingpongClient{
+func NewClient(serverAddress string, port int) (Client, error) {
+	c := client{
 		serverAddress: serverAddress,
 		port:          port,
 	}
@@ -34,7 +34,7 @@ func NewPingPongClient(serverAddress string, port int) (PingPongClient, error) {
 	return &c, nil
 }
 
-func (c *pingpongClient) init() error {
+func (c *client) init() error {
 	address := fmt.Sprintf("%s:%d", c.serverAddress, c.port)
 
 	conn, err := grpc.Dial(address, grpc.WithInsecure())
@@ -48,7 +48,7 @@ func (c *pingpongClient) init() error {
 	return nil
 }
 
-func (c *pingpongClient) SendPing(note string) (*protos.PingPongResponse, error) {
+func (c *client) SendPing(note string) (*protos.PingPongResponse, error) {
 	ctx := context.Background()
 	pType := protos.PingPongType_PING
 
@@ -60,7 +60,7 @@ func (c *pingpongClient) SendPing(note string) (*protos.PingPongResponse, error)
 	return c.grpcClient.Ping(ctx, &req)
 }
 
-func (c *pingpongClient) SendPong(note string) (*protos.PingPongResponse, error) {
+func (c *client) SendPong(note string) (*protos.PingPongResponse, error) {
 	ctx := context.Background()
 	pType := protos.PingPongType_PONG
 

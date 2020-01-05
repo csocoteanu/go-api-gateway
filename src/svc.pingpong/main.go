@@ -3,6 +3,7 @@ package main
 import (
 	"common/discovery/registrant"
 	protos "common/svcprotos/gen"
+	"flag"
 	"fmt"
 	"google.golang.org/grpc"
 	"log"
@@ -10,19 +11,30 @@ import (
 	"svc.pingpong/service"
 )
 
-func main() {
-	grpcPort := 9090
+var controlPort, appPort *int
 
-	log.Printf("Starting gRPC server on port :%d", grpcPort)
-	sock, err := net.Listen("tcp", fmt.Sprintf(":%d", grpcPort))
+func parseArgs() {
+	controlPort = flag.Int("control-port", 8051, "Control port")
+	appPort = flag.Int("app-port", 9091, "Application port")
+
+	flag.Parse()
+}
+
+func main() {
+	parseArgs()
+
+	address := fmt.Sprintf(":%d", *appPort)
+
+	log.Printf("Starting PING-PONG server on port :%d", *appPort)
+	sock, err := net.Listen("tcp", address)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	registrantService := registrant.NewRegistrantService("localhost", 8055, "pingpong", "localhost", 8500)
+	registrant.NewRegistrantService("localhost", uint32(*controlPort), "pingpong", address, "localhost", 8500)
 
 	grpcServer := grpc.NewServer()
-	pingPongService := service.NewPingPongService(registrantService)
+	pingPongService := service.NewPingPongService()
 	protos.RegisterPingPongServiceServer(grpcServer, pingPongService)
 
 	err = grpcServer.Serve(sock)

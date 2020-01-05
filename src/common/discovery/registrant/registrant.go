@@ -17,6 +17,7 @@ type registrantService struct {
 	hostname         string
 	port             uint32
 	serviceName      string
+	serviceAddress   string
 	registryHostname string
 	registryPort     uint32
 }
@@ -24,13 +25,14 @@ type registrantService struct {
 // NewRegistrantService creates a new registrant service instance
 func NewRegistrantService(
 	hostname string, port uint32,
-	serviceName string,
+	serviceName, serviceAddress string,
 	registryHostname string, registryPort uint32) discovery.RegistrantServiceServer {
 
 	s := registrantService{
 		hostname:         hostname,
 		port:             port,
 		serviceName:      serviceName,
+		serviceAddress:   serviceAddress,
 		registryHostname: registryHostname,
 		registryPort:     registryPort,
 	}
@@ -66,6 +68,8 @@ func NewRegistrantService(
 
 // HeartBeat is the gRPC implementation of the HeartBeat method
 func (s *registrantService) HeartBeat(ctx context.Context, req *discovery.HeartbeatRequest) (*discovery.HeartbeatResponse, error) {
+	log.Printf("Received heartbeat (%s)....", req.Message)
+
 	resp := discovery.HeartbeatResponse{
 		Message: utils.ACK,
 		Success: true,
@@ -88,9 +92,10 @@ func (s *registrantService) register() error {
 	if err := expRetrier.Run(func() error {
 		grpcClient := discovery.NewRegistryServiceClient(conn)
 		req := discovery.RegisterRequest{
-			Hostname:    s.hostname,
-			Port:        s.port,
-			ServiceName: s.serviceName,
+			Hostname:       s.hostname,
+			Port:           s.port,
+			ServiceName:    s.serviceName,
+			ServiceAddress: s.serviceAddress,
 		}
 
 		resp, err = grpcClient.Register(context.Background(), &req)

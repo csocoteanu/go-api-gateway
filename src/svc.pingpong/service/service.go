@@ -1,28 +1,23 @@
 package service
 
 import (
-	"common/discovery/protos"
 	protos "common/svcprotos/gen"
 	"context"
 	"fmt"
 )
 
-type pingPongService struct {
-	registrant discovery_protos.RegistrantServiceServer
-}
+type pingPongService struct{}
 
-func NewPingPongService(registrant discovery_protos.RegistrantServiceServer) protos.PingPongServiceServer {
-	return &pingPongService{
-		registrant: registrant,
-	}
+func NewPingPongService() protos.PingPongServiceServer {
+	return &pingPongService{}
 }
 
 func (s *pingPongService) Ping(ctx context.Context, req *protos.PingPongRequest) (*protos.PingPongResponse, error) {
-	return createResponse(req, protos.PingPongType_PONG)
+	return createResponse(req, protos.PingPongType_PING)
 }
 
 func (s *pingPongService) Pong(ctx context.Context, req *protos.PingPongRequest) (*protos.PingPongResponse, error) {
-	return createResponse(req, protos.PingPongType_PING)
+	return createResponse(req, protos.PingPongType_PONG)
 }
 
 func createResponse(req *protos.PingPongRequest, respType protos.PingPongType) (*protos.PingPongResponse, error) {
@@ -37,6 +32,7 @@ func createResponse(req *protos.PingPongRequest, respType protos.PingPongType) (
 	}
 
 	message := fmt.Sprintf("%s: %s", typeToString(respTypeString), note)
+
 	response := protos.PingPongResponse{
 		Type:    respTypeString,
 		Message: message,
