@@ -1,6 +1,7 @@
 package utils
 
 const (
-	// ACK ...
-	ACK = "ACK"
+	ACK                 = "ACK"
+	PingPongServiceName = "pingpong"
+	EchoServiceName     = "echo"
 )

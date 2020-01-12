@@ -4,7 +4,6 @@ import (
 	discovery "common/discovery/protos"
 	"common/discovery/utils"
 	"context"
-	"fmt"
 	"github.com/eapache/go-resiliency/retrier"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
@@ -14,27 +13,25 @@ import (
 )
 
 type registrantService struct {
-	hostname         string
-	port             uint32
-	serviceName      string
-	serviceAddress   string
-	registryHostname string
-	registryPort     uint32
+	controlAddress  string
+	registryAddress string
+	serviceName     string
+	balancerAddress string
+	localAddress    string
 }
 
 // NewRegistrantService creates a new registrant service instance
 func NewRegistrantService(
-	hostname string, port uint32,
-	serviceName, serviceAddress string,
-	registryHostname string, registryPort uint32) discovery.RegistrantServiceServer {
+	controlAddress string,
+	registryAddress string,
+	serviceName, serviceBalancerAddress, serviceLocalAddress string) discovery.RegistrantServiceServer {
 
 	s := registrantService{
-		hostname:         hostname,
-		port:             port,
-		serviceName:      serviceName,
-		serviceAddress:   serviceAddress,
-		registryHostname: registryHostname,
-		registryPort:     registryPort,
+		serviceName:     serviceName,
+		balancerAddress: serviceBalancerAddress,
+		localAddress:    serviceLocalAddress,
+		controlAddress:  controlAddress,
+		registryAddress: registryAddress,
 	}
 
 	go func() {
@@ -59,7 +56,7 @@ func NewRegistrantService(
 
 	go func() {
 		if err := s.listenForHeartBeats(); err != nil {
-			log.Fatalf("Failed starting registrant on %s:%d", s.hostname, s.port)
+			log.Fatalf("Failed starting registrant on %s", s.controlAddress)
 		}
 	}()
 
@@ -79,11 +76,9 @@ func (s *registrantService) HeartBeat(ctx context.Context, req *discovery.Heartb
 }
 
 func (s *registrantService) register() error {
-	address := fmt.Sprintf("%s:%d", s.registryHostname, s.registryPort)
-
-	conn, err := grpc.Dial(address, grpc.WithInsecure())
+	conn, err := grpc.Dial(s.registryAddress, grpc.WithInsecure())
 	if err != nil {
-		return errors.Wrapf(err, "failed connecting to server at %s", address)
+		return errors.Wrapf(err, "failed connecting to server at %s", s.registryAddress)
 	}
 
 	var resp *discovery.RegisterResponse
@@ -92,15 +87,15 @@ func (s *registrantService) register() error {
 	if err := expRetrier.Run(func() error {
 		grpcClient := discovery.NewRegistryServiceClient(conn)
 		req := discovery.RegisterRequest{
-			Hostname:       s.hostname,
-			Port:           s.port,
-			ServiceName:    s.serviceName,
-			ServiceAddress: s.serviceAddress,
+			ControlAddress:         s.controlAddress,
+			ServiceName:            s.serviceName,
+			ServiceBalancerAddress: s.balancerAddress,
+			ServiceLocalAddress:    s.localAddress,
 		}
 
 		resp, err = grpcClient.Register(context.Background(), &req)
 		if err != nil {
-			log.Printf("Error registering to %s! err=%s", s.registryHostname, err.Error())
+			log.Printf("Error registering to %s! err=%s", s.registryAddress, err.Error())
 			return err
 		}
 
@@ -121,8 +116,8 @@ func (s *registrantService) register() error {
 }
 
 func (s *registrantService) listenForHeartBeats() error {
-	log.Printf("Starting registrant on port=%d", s.port)
-	sock, err := net.Listen("tcp", fmt.Sprintf("%s:%d", s.hostname, s.port))
+	log.Printf("Starting registrant on address=%s", s.controlAddress)
+	sock, err := net.Listen("tcp", s.controlAddress)
 	if err != nil {
 		return err
 	}

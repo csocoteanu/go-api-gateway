@@ -2,20 +2,21 @@ package main
 
 import (
 	"common/discovery/registrant"
+	"common/discovery/utils"
 	protos "common/svcprotos/gen"
 	"flag"
-	"fmt"
 	"google.golang.org/grpc"
 	"log"
 	"net"
 	"svc.pingpong/service"
 )
 
-var controlPort, appPort *int
+var controlPort, appBalancerPort, appLocalPort *int
 
 func parseArgs() {
 	controlPort = flag.Int("control-port", 8051, "Control port")
-	appPort = flag.Int("app-port", 9091, "Application port")
+	appBalancerPort = flag.Int("app-balancer-port", 9090, "Application balancer port")
+	appLocalPort = flag.Int("app-port", 9090, "Application local port")
 
 	flag.Parse()
 }
@@ -23,15 +24,19 @@ func parseArgs() {
 func main() {
 	parseArgs()
 
-	address := fmt.Sprintf(":%d", *appPort)
+	log.Printf("Starting PING-PONG server on port :%d", *appLocalPort)
 
-	log.Printf("Starting PING-PONG server on port :%d", *appPort)
+	address := utils.NewGRPCAddress("", uint32(*appLocalPort))
 	sock, err := net.Listen("tcp", address)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	registrant.NewRegistrantService("localhost", uint32(*controlPort), "pingpong", address, "localhost", 8500)
+	controlAddress := utils.NewGRPCAddress("localhost", uint32(*controlPort))
+	balancerAddress := utils.NewGRPCAddress("localhost", uint32(*appBalancerPort))
+	localAddress := utils.NewGRPCAddress("localhost", uint32(*appLocalPort))
+
+	registrant.NewRegistrantService(controlAddress, utils.RegistryAddress, utils.PingPongServiceName, balancerAddress, localAddress)
 
 	grpcServer := grpc.NewServer()
 	pingPongService := service.NewPingPongService()

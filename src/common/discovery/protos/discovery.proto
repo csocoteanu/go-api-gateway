@@ -12,10 +12,10 @@ service RegistrantService {
 }
 
 message RegisterRequest {
-    string hostname = 1;
-    uint32 port = 2;
-    string serviceName = 3;
-    string serviceAddress = 4;
+    string controlAddress = 1;
+    string serviceName = 2;
+    string serviceBalancerAddress = 3;
+    string serviceLocalAddress = 4;
 }
 
 message RegisterResponse {
@@ -26,6 +26,7 @@ message RegisterResponse {
 
 message UnregisterRequest {
     string serviceName = 1;
+    string controlAddress = 2;
 }
 
 message UnregisterResponse {
