@@ -17,18 +17,10 @@ import (
 const maxHeartBeatRetries = 1
 
 type healthChecker struct {
-	info     registrantInfo
-	ticker   *time.Ticker
-	quit     chan struct{}
-	tracker  *serviceTracker
-	registry *ServiceRegistry
-}
-
-type serviceTracker struct {
-	services map[string][]registrantInfo
-	lock     *sync.RWMutex
-	addChan  chan registrantInfo
-	remChan  chan registrantInfo
+	info   registrantInfo
+	ticker *time.Ticker
+	quit   chan struct{}
+	done   chan registrantInfo
 }
 
 type registrantInfo struct {
@@ -39,17 +31,17 @@ type registrantInfo struct {
 }
 
 type ServiceInfo struct {
-	BalancerAddress string   `json:"balancer_address"`
-	LocalAddresses  []string `json:"local_addresses"`
+	BalancerAddress string   `json:"balancer"`
+	LocalAddresses  []string `json:"locals"`
 }
 
 type ServiceRegistry struct {
 	hostname           string
 	port               uint32
 	healthCheckers     map[string][]*healthChecker
-	healthCheckersLock *sync.Mutex
-	tracker            *serviceTracker
+	healthCheckersLock *sync.RWMutex
 	chanReq            chan discovery.RegisterRequest
+	done               chan registrantInfo
 }
 
 // ActiveServicesProvider provides a list of active service names
@@ -64,18 +56,13 @@ func NewServiceRegistry(hostname string, port uint32) discovery.RegistryServiceS
 		hostname:           hostname,
 		port:               port,
 		healthCheckers:     make(map[string][]*healthChecker),
-		healthCheckersLock: &sync.Mutex{},
-		tracker:            newServiceTracker(),
+		healthCheckersLock: &sync.RWMutex{},
 		chanReq:            make(chan discovery.RegisterRequest),
+		done:               make(chan registrantInfo),
 	}
 
-	go func() {
-		if err := s.listen(); err != nil {
-			log.Fatalf("Failed starting service registry on %s:%d", s.hostname, s.port)
-		}
-	}()
-
-	go s.tracker.start()
+	s.startListen()
+	s.startRemoveHealthChecker()
 
 	return &s
 }
@@ -102,7 +89,8 @@ func (s *ServiceRegistry) Register(ctx context.Context, req *discovery.RegisterR
 		}
 	}
 
-	s.healthCheckers[req.ServiceName] = append(s.healthCheckers[req.ServiceName], newHealthChecker(req, s.tracker, s))
+	hChecker := newHealthChecker(req, s.done)
+	s.healthCheckers[req.ServiceName] = append(s.healthCheckers[req.ServiceName], hChecker)
 	s.chanReq <- *req
 
 	log.Printf("Succesfully registered service=%s address=%s", req.ServiceName, req.ControlAddress)
@@ -119,9 +107,21 @@ func (s *ServiceRegistry) Unregister(ctx context.Context, req *discovery.Unregis
 		return nil, utils.ErrInvalidRequest
 	}
 
-	err := s.removeHealthChecker(req.ServiceName, req.ControlAddress)
-	if err != nil {
-		return nil, err
+	log.Printf("Trying to unregister service=%s control=%s", req.ServiceName, req.ControlAddress)
+
+	s.healthCheckersLock.RLock()
+	defer s.healthCheckersLock.RUnlock()
+
+	hCheckers, ok := s.healthCheckers[req.ServiceName]
+	if !ok {
+		log.Printf("Service with name=%s does not exist! Skipping...", req.ServiceName)
+		return nil, utils.ErrRegistrantMissing
+	}
+
+	for _, hChecker := range hCheckers {
+		if hChecker.info.controlAddress == req.ControlAddress {
+			hChecker.stopHealthCheck()
+		}
 	}
 
 	resp := discovery.UnregisterResponse{
@@ -132,110 +132,73 @@ func (s *ServiceRegistry) Unregister(ctx context.Context, req *discovery.Unregis
 }
 
 func (s *ServiceRegistry) GetActiveServices() map[string]ServiceInfo {
-	return s.tracker.getServices()
+	return s.getServices()
 }
 
-func (s *ServiceRegistry) listen() error {
-	log.Printf("Starting registry on port=%d", s.port)
-	sock, err := net.Listen("tcp", fmt.Sprintf("%s:%d", s.hostname, s.port))
-	if err != nil {
-		return err
-	}
-
-	grpcServer := grpc.NewServer()
-	discovery.RegisterRegistryServiceServer(grpcServer, s)
-
-	err = grpcServer.Serve(sock)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (s *ServiceRegistry) removeHealthChecker(serviceName, controlAddress string) error {
-	s.healthCheckersLock.Lock()
-	defer s.healthCheckersLock.Unlock()
-
-	hCheckers, ok := s.healthCheckers[serviceName]
-	if !ok {
-		log.Printf("Service with name=%s does not exist! Skipping...", serviceName)
-		return utils.ErrRegistrantMissing
-	}
-
-	remaining := []*healthChecker{}
-	for _, hChecker := range hCheckers {
-		if hChecker.info.controlAddress == controlAddress {
-			hChecker.stopHealthCheck()
-			log.Printf("Succesfully unregistered service=%s hostname=%s", serviceName, controlAddress)
-		} else {
-			remaining = append(remaining, hChecker)
+func (s *ServiceRegistry) startListen() {
+	go func() {
+		log.Printf("Starting registry on port=%d", s.port)
+		sock, err := net.Listen("tcp", fmt.Sprintf("%s:%d", s.hostname, s.port))
+		if err != nil {
+			log.Fatalf("Failed starting service registry on %s:%d! err=%+v", s.hostname, s.port, err)
 		}
-	}
 
-	if len(remaining) == 0 {
-		delete(s.healthCheckers, serviceName)
-	} else {
-		s.healthCheckers[serviceName] = remaining
-	}
+		grpcServer := grpc.NewServer()
+		discovery.RegisterRegistryServiceServer(grpcServer, s)
 
-	return nil
+		err = grpcServer.Serve(sock)
+		if err != nil {
+			log.Fatalf("Failed starting gRPC registry on %s:%d! err=%+v", s.hostname, s.port, err)
+		}
+	}()
 }
 
-func newServiceTracker() *serviceTracker {
-	t := serviceTracker{
-		services: make(map[string][]registrantInfo),
-		lock:     &sync.RWMutex{},
-		addChan:  make(chan registrantInfo),
-		remChan:  make(chan registrantInfo),
-	}
+func (s *ServiceRegistry) startRemoveHealthChecker() {
+	go func() {
+		for rInfo := range s.done {
+			s.healthCheckersLock.Lock()
 
-	return &t
-}
+			hCheckers, ok := s.healthCheckers[rInfo.serviceName]
+			if !ok {
+				log.Printf("Skipping missing service name=%s", rInfo.serviceName)
+				s.healthCheckersLock.Unlock()
+				continue
+			}
 
-func (t *serviceTracker) start() {
-	for {
-		select {
-		case rInfo := <-t.addChan:
-			t.lock.Lock()
-			t.services[rInfo.serviceName] = append(t.services[rInfo.serviceName], rInfo)
-			t.lock.Unlock()
-		case rInfo := <-t.remChan:
-			t.lock.Lock()
-			infos, ok := t.services[rInfo.serviceName]
-			if ok {
-				remaining := []registrantInfo{}
-				for _, info := range infos {
-					if info.controlAddress != rInfo.controlAddress {
-						remaining = append(remaining, info)
-					}
-				}
-
-				if len(remaining) == 0 {
-					delete(t.services, rInfo.serviceName)
+			remaining := []*healthChecker{}
+			for _, hChecker := range hCheckers {
+				if hChecker.info.controlAddress == rInfo.controlAddress {
+					log.Printf("Succesfully unregistered service=%s control=%s", rInfo.serviceName, rInfo.controlAddress)
 				} else {
-					t.services[rInfo.serviceName] = remaining
+					remaining = append(remaining, hChecker)
 				}
 			}
-			t.lock.Unlock()
+
+			if len(remaining) == 0 {
+				delete(s.healthCheckers, rInfo.serviceName)
+			} else {
+				s.healthCheckers[rInfo.serviceName] = remaining
+			}
+
+			s.healthCheckersLock.Unlock()
 		}
-	}
+	}()
 }
 
-func (t *serviceTracker) getServices() map[string]ServiceInfo {
-	t.lock.RLock()
-	defer t.lock.RUnlock()
+func (r *ServiceRegistry) getServices() map[string]ServiceInfo {
+	r.healthCheckersLock.RLock()
+	defer r.healthCheckersLock.RUnlock()
 
 	result := map[string]ServiceInfo{}
-	for k, v := range t.services {
+	for k, v := range r.healthCheckers {
 		serviceInfo, ok := result[k]
 		if !ok {
 			serviceInfo = ServiceInfo{}
 		}
 
 		for _, rInfo := range v {
-			serviceInfo.LocalAddresses = append(serviceInfo.LocalAddresses, rInfo.serviceLocalAddress)
-			serviceInfo.BalancerAddress = rInfo.serviceBalancerAddress
+			serviceInfo.LocalAddresses = append(serviceInfo.LocalAddresses, rInfo.info.serviceLocalAddress)
+			serviceInfo.BalancerAddress = rInfo.info.serviceBalancerAddress
 		}
 
 		result[k] = serviceInfo
@@ -258,13 +221,12 @@ func newRegistrantInfo(
 	return ri
 }
 
-func newHealthChecker(req *discovery.RegisterRequest, tracker *serviceTracker, registry *ServiceRegistry) *healthChecker {
+func newHealthChecker(req *discovery.RegisterRequest, done chan registrantInfo) *healthChecker {
 	info := newRegistrantInfo(req.ControlAddress, req.ServiceName, req.ServiceBalancerAddress, req.ServiceLocalAddress)
 	r := healthChecker{
-		info:     info,
-		quit:     make(chan struct{}),
-		tracker:  tracker,
-		registry: registry,
+		info: info,
+		quit: make(chan struct{}),
+		done: done,
 	}
 
 	go r.startHealthCheck()
@@ -273,17 +235,12 @@ func newHealthChecker(req *discovery.RegisterRequest, tracker *serviceTracker, r
 }
 
 func (r *healthChecker) startHealthCheck() {
-	r.ticker = time.NewTicker(20 * time.Second)
+	r.ticker = time.NewTicker(10 * time.Second)
 	retries := maxHeartBeatRetries
 
-	r.tracker.addChan <- r.info
 	defer func() {
 		r.ticker.Stop()
-		r.tracker.remChan <- r.info
-		err := r.registry.removeHealthChecker(r.info.serviceName, r.info.controlAddress)
-		if err != nil {
-			log.Printf("Error removing registrant service=%s (%s)", r.info.serviceName, r.info.controlAddress)
-		}
+		r.done <- r.info
 	}()
 
 	for retries > 0 {
@@ -297,6 +254,7 @@ func (r *healthChecker) startHealthCheck() {
 				retries--
 				log.Printf("Error sending heartbeat to service=%s (Retries remaining=%d! err=%s",
 					r.info.serviceName, retries, err.Error())
+				return
 			} else {
 				retries = maxHeartBeatRetries
 			}
