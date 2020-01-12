@@ -47,7 +47,11 @@ type ServiceRegistry struct {
 // ActiveServicesProvider provides a list of active service names
 type ActiveServicesProvider interface {
 	// GetActiveServices returns a list of active services
-	GetActiveServices() map[string][]ServiceInfo
+	GetActiveServices() map[string]ServiceInfo
+}
+
+type ServiceRegisteredHandler interface {
+	OnServiceRegistered() chan discovery.RegisterRequest
 }
 
 // NewServiceRegistry creates a new service registry instance
@@ -67,7 +71,7 @@ func NewServiceRegistry(hostname string, port uint32) discovery.RegistryServiceS
 	return &s
 }
 
-func (s *ServiceRegistry) GetRegistered() chan discovery.RegisterRequest {
+func (s *ServiceRegistry) OnServiceRegistered() chan discovery.RegisterRequest {
 	return s.chanReq
 }
 
