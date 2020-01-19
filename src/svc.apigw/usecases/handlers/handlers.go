@@ -1,8 +1,12 @@
 package handlers
 
 import (
+	"common/clients/discovery"
 	"common/discovery/domain"
+	"encoding/json"
+	"fmt"
 	"github.com/golang/glog"
+	"log"
 	"net/http"
 	"path"
 	"strings"
@@ -16,19 +20,30 @@ type ServiceInfo struct {
 }
 
 type APIManager struct {
-	registry domain.ServiceRegistry
+	handler domain.RegisterHandler
+	client  discovery.Client
 }
 
-func NewAPIManager(registry domain.ServiceRegistry) *APIManager {
+func NewAPIManager(handler domain.RegisterHandler, client discovery.Client) *APIManager {
 	m := APIManager{
-		registry: registry,
+		handler: handler,
+		client:  client,
 	}
 
 	return &m
 }
 
 func (m *APIManager) ServicesHandler(w http.ResponseWriter, r *http.Request) {
-	/*services := m.registry.GetServices()
+	services, err := m.client.GetServices()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, err := w.Write([]byte(fmt.Sprintf("Error: %s", err.Error())))
+		if err != nil {
+			log.Printf("Unable to service /services request! err=%s", err.Error())
+		}
+		return
+	}
+
 	servicesBytes, err := json.Marshal(services)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -43,7 +58,11 @@ func (m *APIManager) ServicesHandler(w http.ResponseWriter, r *http.Request) {
 	_, err = w.Write(servicesBytes)
 	if err != nil {
 		log.Printf("Unable to service /services request! err=%s", err.Error())
-	}*/
+	}
+
+	for _, svc := range services {
+		m.handler.OnServiceRegistered() <- *svc
+	}
 }
 
 func (m *APIManager) SwaggerHandler(w http.ResponseWriter, r *http.Request) {

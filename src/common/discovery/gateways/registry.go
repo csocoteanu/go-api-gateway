@@ -152,21 +152,19 @@ func (s *serviceRegistry) Load(rInfos ...domain.RegistrantInfo) error {
 }
 
 func (s *serviceRegistry) startListen() {
-	go func() {
-		log.Printf("Starting registry on port=%d", s.port)
-		sock, err := net.Listen("tcp", fmt.Sprintf("%s:%d", s.hostname, s.port))
-		if err != nil {
-			log.Fatalf("Failed starting service registry on %s:%d! err=%+v", s.hostname, s.port, err)
-		}
+	log.Printf("Starting registry on port=%d", s.port)
+	sock, err := net.Listen("tcp", fmt.Sprintf("%s:%d", s.hostname, s.port))
+	if err != nil {
+		log.Fatalf("Failed starting service registry on %s:%d! err=%+v", s.hostname, s.port, err)
+	}
 
-		grpcServer := grpc.NewServer()
-		discovery.RegisterRegistryServiceServer(grpcServer, s)
+	grpcServer := grpc.NewServer()
+	discovery.RegisterRegistryServiceServer(grpcServer, s)
 
-		err = grpcServer.Serve(sock)
-		if err != nil {
-			log.Fatalf("Failed starting gRPC registry on %s:%d! err=%+v", s.hostname, s.port, err)
-		}
-	}()
+	err = grpcServer.Serve(sock)
+	if err != nil {
+		log.Fatalf("Failed starting gRPC registry on %s:%d! err=%+v", s.hostname, s.port, err)
+	}
 }
 
 func (s *serviceRegistry) startRemoveHealthChecker() {
