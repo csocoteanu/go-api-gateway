@@ -1,14 +1,14 @@
 package main
 
 import (
-	"common/discovery/registrant"
-	"common/discovery/utils"
+	"common/discovery/domain"
+	"common/discovery/gateways"
 	protos "common/svcprotos/gen"
 	"flag"
 	"google.golang.org/grpc"
 	"log"
 	"net"
-	"svc.echo/service"
+	"svc.echo/usecases"
 )
 
 var controlPort, appBalancerPort, appLocalPort *int
@@ -26,19 +26,19 @@ func main() {
 
 	log.Printf("Starting ECHO server on port :%d", *appLocalPort)
 
-	address := utils.NewGRPCAddress("", uint32(*appLocalPort))
+	address := domain.ToGRPCAddress("", uint32(*appLocalPort))
 	sock, err := net.Listen("tcp", address)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	controlAddress := utils.NewGRPCAddress("localhost", uint32(*controlPort))
-	balancerAddress := utils.NewGRPCAddress("localhost", uint32(*appBalancerPort))
-	localAddress := utils.NewGRPCAddress("localhost", uint32(*appLocalPort))
+	controlAddress := domain.ToGRPCAddress("localhost", uint32(*controlPort))
+	balancerAddress := domain.ToGRPCAddress("localhost", uint32(*appBalancerPort))
+	localAddress := domain.ToGRPCAddress("localhost", uint32(*appLocalPort))
 
-	registrant.NewRegistrantService(controlAddress, utils.RegistryAddress, utils.EchoServiceName, balancerAddress, localAddress)
+	gateways.NewRegistrantService(controlAddress, domain.RegistryAddress, domain.EchoServiceName, balancerAddress, localAddress)
 	grpcServer := grpc.NewServer()
-	pingPongService := service.NewEchoService()
+	pingPongService := usecases.NewEchoService()
 	protos.RegisterEchoServiceServer(grpcServer, pingPongService)
 
 	err = grpcServer.Serve(sock)

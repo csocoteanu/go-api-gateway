@@ -5,6 +5,7 @@ package discovery.protos;
 service RegistryService {
     rpc Register(RegisterRequest) returns (RegisterResponse) {}
     rpc Unregister(UnregisterRequest) returns (UnregisterResponse) {}
+    rpc GetServices(GetServicesRequest) returns (ServicesResponse) {}
 }
 
 service RegistrantService {
@@ -27,6 +28,20 @@ message RegisterResponse {
 message UnregisterRequest {
     string serviceName = 1;
     string controlAddress = 2;
+}
+
+message ServiceInfo {
+    string serviceName = 1;
+    string serviceBalancerAddress = 2;
+    repeated string serviceLocalAddress = 3;
+}
+
+message GetServicesRequest {
+
+}
+
+message ServicesResponse {
+    repeated ServiceInfo serviceInfos = 1;
 }
 
 message UnregisterResponse {

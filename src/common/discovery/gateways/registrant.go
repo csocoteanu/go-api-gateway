@@ -1,14 +1,15 @@
-package registrant
+package gateways
 
 import (
-	discovery "common/discovery/protos"
-	"common/discovery/utils"
+	"common/discovery/domain"
+	discovery "common/discovery/domain/protos"
 	"context"
 	"github.com/eapache/go-resiliency/retrier"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"log"
 	"net"
+	"sync"
 	"time"
 )
 
@@ -18,6 +19,8 @@ type registrantService struct {
 	serviceName     string
 	balancerAddress string
 	localAddress    string
+	lastUpdatedTime time.Time
+	connectedLock   *sync.Mutex
 }
 
 // NewRegistrantService creates a new registrant service instance
@@ -32,27 +35,10 @@ func NewRegistrantService(
 		localAddress:    serviceLocalAddress,
 		controlAddress:  controlAddress,
 		registryAddress: registryAddress,
+		connectedLock:   &sync.Mutex{},
 	}
 
-	go func() {
-		defer func() { log.Printf("Succesfully registered service=%s", s.serviceName) }()
-
-		if err := s.register(); err != nil {
-			log.Printf("Failed registering! err=%s", err.Error())
-		} else {
-			return
-		}
-
-		ticker := time.NewTicker(15 * time.Minute)
-		for range ticker.C {
-			if err := s.register(); err != nil {
-				log.Printf("Failed registering! err=%s", err.Error())
-			} else {
-				ticker.Stop()
-				return
-			}
-		}
-	}()
+	go s.connectToRegistry()
 
 	go func() {
 		if err := s.listenForHeartBeats(); err != nil {
@@ -67,8 +53,10 @@ func NewRegistrantService(
 func (s *registrantService) HeartBeat(ctx context.Context, req *discovery.HeartbeatRequest) (*discovery.HeartbeatResponse, error) {
 	log.Printf("Received heartbeat (%s)....", req.Message)
 
+	s.setUpdatedTime()
+
 	resp := discovery.HeartbeatResponse{
-		Message: utils.ACK,
+		Message: domain.ACK,
 		Success: true,
 	}
 
@@ -76,6 +64,8 @@ func (s *registrantService) HeartBeat(ctx context.Context, req *discovery.Heartb
 }
 
 func (s *registrantService) register() error {
+	log.Printf("Registering to service: %s", s.registryAddress)
+
 	conn, err := grpc.Dial(s.registryAddress, grpc.WithInsecure())
 	if err != nil {
 		return errors.Wrapf(err, "failed connecting to server at %s", s.registryAddress)
@@ -105,12 +95,13 @@ func (s *registrantService) register() error {
 	}
 
 	if resp == nil {
-		return utils.ErrRegisterFailed
+		return domain.ErrRegisterFailed
+	}
+	if !resp.Success {
+		return domain.AggregateErrors(resp.Errors...)
 	}
 
-	if !resp.Success {
-		return utils.AggregateErrors(resp.Errors...)
-	}
+	s.setUpdatedTime()
 
 	return nil
 }
@@ -130,4 +121,36 @@ func (s *registrantService) listenForHeartBeats() error {
 	}
 
 	return nil
+}
+
+func (s *registrantService) connectToRegistry() {
+	defer func() { log.Printf("Succesfully registered service=%s", s.serviceName) }()
+
+	if err := s.register(); err != nil {
+		log.Printf("Failed registering! err=%s", err.Error())
+	}
+
+	ticker := time.NewTicker(1 * time.Minute)
+	for range ticker.C {
+		register := false
+
+		s.connectedLock.Lock()
+		duration := time.Now().Sub(s.lastUpdatedTime)
+		if duration.Minutes() > 1 {
+			register = true
+		}
+		s.connectedLock.Unlock()
+
+		if register {
+			if err := s.register(); err != nil {
+				log.Printf("Failed registering! err=%s", err.Error())
+			}
+		}
+	}
+}
+
+func (s *registrantService) setUpdatedTime() {
+	s.connectedLock.Lock()
+	s.lastUpdatedTime = time.Now()
+	s.connectedLock.Unlock()
 }

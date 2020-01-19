@@ -23,7 +23,7 @@ const (
 var (
 	reader                                   = bufio.NewReader(os.Stdin)
 	pingPongServerAddress, echoServerAddress = "localhost", "localhost"
-	pingPongPort, echoPort                   = 9091, 9090
+	pingPongPort, echoPort                   = 9090, 10010
 )
 
 func displayMenu() int {

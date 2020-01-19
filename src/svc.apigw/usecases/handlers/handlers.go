@@ -1,11 +1,8 @@
 package handlers
 
 import (
-	"common/discovery/registry"
-	"encoding/json"
-	"fmt"
+	"common/discovery/domain"
 	"github.com/golang/glog"
-	"log"
 	"net/http"
 	"path"
 	"strings"
@@ -13,20 +10,25 @@ import (
 
 var dir = "./pb/"
 
-type APIManager struct {
-	provider registry.ActiveServicesProvider
+type ServiceInfo struct {
+	BalancerAddress string   `json:"balancer"`
+	LocalAddresses  []string `json:"locals"`
 }
 
-func NewAPIManager(provider registry.ActiveServicesProvider) *APIManager {
+type APIManager struct {
+	registry domain.ServiceRegistry
+}
+
+func NewAPIManager(registry domain.ServiceRegistry) *APIManager {
 	m := APIManager{
-		provider: provider,
+		registry: registry,
 	}
 
 	return &m
 }
 
 func (m *APIManager) ServicesHandler(w http.ResponseWriter, r *http.Request) {
-	services := m.provider.GetActiveServices()
+	/*services := m.registry.GetServices()
 	servicesBytes, err := json.Marshal(services)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -41,7 +43,7 @@ func (m *APIManager) ServicesHandler(w http.ResponseWriter, r *http.Request) {
 	_, err = w.Write(servicesBytes)
 	if err != nil {
 		log.Printf("Unable to service /services request! err=%s", err.Error())
-	}
+	}*/
 }
 
 func (m *APIManager) SwaggerHandler(w http.ResponseWriter, r *http.Request) {
