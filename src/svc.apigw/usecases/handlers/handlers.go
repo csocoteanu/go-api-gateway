@@ -5,14 +5,16 @@ import (
 	"common/discovery/domain"
 	"encoding/json"
 	"fmt"
-	"github.com/golang/glog"
 	"log"
 	"net/http"
 	"path"
 	"strings"
 )
 
-var dir = "./pb/"
+const (
+	swaggerDirectory = "../common/svcprotos/swagger"
+	swaggerDistro    = "../swagger-ui/dist"
+)
 
 type ServiceInfo struct {
 	BalancerAddress string   `json:"balancer"`
@@ -67,22 +69,26 @@ func (m *APIManager) ServicesHandler(w http.ResponseWriter, r *http.Request) {
 
 func (m *APIManager) SwaggerHandler(w http.ResponseWriter, r *http.Request) {
 	if !strings.HasSuffix(r.URL.Path, ".swagger.json") {
-		glog.Errorf("Not Found: %s", r.URL.Path)
+		log.Printf("Not Found: %s", r.URL.Path)
 		http.NotFound(w, r)
 		return
 	}
 
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	p := strings.TrimPrefix(r.URL.Path, "/swagger/")
-	p = path.Join(dir, p)
-	glog.Infof("Serving %s [%s]", r.URL.Path, p)
+	p = path.Join(swaggerDirectory, p)
+	log.Printf("Serving %s [%s]", r.URL.Path, p)
 
 	http.ServeFile(w, r, p)
 }
 
 func (m *APIManager) GetWebservice() *http.ServeMux {
 	svc := http.NewServeMux()
+	fs := http.FileServer(http.Dir(swaggerDistro))
+
 	svc.HandleFunc("/services", m.ServicesHandler)
-	svc.HandleFunc("/swagger", m.SwaggerHandler)
+	svc.HandleFunc("/swagger/", m.SwaggerHandler)
+	svc.Handle("/swagger-dist/", http.StripPrefix("/swagger-dist/", fs))
 
 	return svc
 }

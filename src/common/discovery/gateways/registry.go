@@ -42,9 +42,6 @@ func NewServiceRegistryServer(hostname string, port uint32) domain.ServiceRegist
 		healthCheckerExit:  make(chan domain.RegistrantInfo),
 	}
 
-	s.startListen()
-	s.startRemoveHealthChecker()
-
 	return &s
 }
 
@@ -57,6 +54,9 @@ func (s *serviceRegistry) Register(ctx context.Context, req *discovery.RegisterR
 	}
 
 	rInfo := domain.NewRegistrantInfo(req.ControlAddress, req.ServiceName, req.ServiceBalancerAddress, req.ServiceLocalAddress)
+
+	log.Printf("Received register request: %s", rInfo.String())
+
 	err := s.Load(rInfo)
 	if err != nil {
 		return nil, err
@@ -104,11 +104,11 @@ func (s *serviceRegistry) GetServices(ctx context.Context, req *discovery.GetSer
 
 	result := &discovery.ServicesResponse{}
 
-	for _, hCheckers := range s.healthCheckers {
+	for serviceName, hCheckers := range s.healthCheckers {
 		serviceInfo := &discovery.ServiceInfo{}
+		serviceInfo.ServiceName = serviceName
 
 		for _, hChecker := range hCheckers {
-			serviceInfo.ServiceName = hChecker.info.ServiceName
 			serviceInfo.ServiceBalancerAddress = hChecker.info.ServiceBalancerAddress
 			serviceInfo.ServiceLocalAddress = append(serviceInfo.ServiceLocalAddress, hChecker.info.ServiceLocalAddress)
 		}
@@ -151,7 +151,10 @@ func (s *serviceRegistry) Load(rInfos ...domain.RegistrantInfo) error {
 	return nil
 }
 
-func (s *serviceRegistry) startListen() {
+func (s *serviceRegistry) Start() {
+	go s.startRemoveHealthChecker()
+	defer func() { close(s.healthCheckerExit) }()
+
 	log.Printf("Starting registry on port=%d", s.port)
 	sock, err := net.Listen("tcp", fmt.Sprintf("%s:%d", s.hostname, s.port))
 	if err != nil {
@@ -168,18 +171,23 @@ func (s *serviceRegistry) startListen() {
 }
 
 func (s *serviceRegistry) startRemoveHealthChecker() {
-	go func() {
-		for rInfo := range s.healthCheckerExit {
-			s.removeHealthChecker(rInfo)
-
-			for _, handler := range s.handlers {
-				handler.OnServiceUnregistered() <- rInfo
-			}
+	for {
+		rInfo, ok := <-s.healthCheckerExit
+		if !ok {
+			log.Print("Exiting remove healthcheck listener")
 		}
-	}()
+
+		s.removeHealthChecker(rInfo)
+
+		for _, handler := range s.handlers {
+			handler.OnServiceUnregistered() <- rInfo
+		}
+	}
 }
 
 func (s *serviceRegistry) removeHealthChecker(rInfo domain.RegistrantInfo) {
+	log.Printf("Removing healthchecker for %s", rInfo.String())
+
 	s.healthCheckersLock.Lock()
 	defer s.healthCheckersLock.Unlock()
 
@@ -220,16 +228,20 @@ func newHealthChecker(info domain.RegistrantInfo, done chan domain.RegistrantInf
 func (r *healthChecker) startHealthCheck() {
 	r.ticker = time.NewTicker(10 * time.Second)
 	retries := maxHeartBeatRetries
-
 	defer func() {
+		log.Printf("Stopping healthcheck for %s", r.info.String())
 		r.ticker.Stop()
+		log.Printf("Done stopping timer for %s", r.info.String())
 		r.done <- r.info
+		log.Printf("Done stopping healthcheck for %s", r.info.String())
 	}()
+
+	log.Printf("Starting healthcheck for %s", r.info.String())
 
 	for retries > 0 {
 		select {
 		case <-r.quit:
-			log.Printf("Quiting healthcheck for %s (%s).....", r.info.ServiceName, r.info.ControlAddress)
+			log.Printf("Quiting healthcheck for %s", r.info.String())
 			return
 		case <-r.ticker.C:
 			log.Printf("Sending heartbeat for %s (%s).......", r.info.ServiceName, r.info.ControlAddress)

@@ -1,5 +1,7 @@
 package domain
 
+import "fmt"
+
 type RegistrantInfo struct {
 	ServiceName            string
 	ServiceBalancerAddress string
@@ -20,6 +22,7 @@ type RegisterHandler interface {
 
 type ServiceRegistry interface {
 	RegisterHandler(RegisterHandler)
+	Start()
 }
 
 type TCPLoadBalancer interface {
@@ -40,4 +43,12 @@ func NewRegistrantInfo(
 	}
 
 	return ri
+}
+
+func (ri *RegistrantInfo) String() string {
+	return fmt.Sprintf("%s[%s] local=%s control=%s",
+		ri.ServiceName,
+		ri.ServiceBalancerAddress,
+		ri.ServiceLocalAddress,
+		ri.ControlAddress)
 }

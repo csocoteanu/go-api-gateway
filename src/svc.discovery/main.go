@@ -22,4 +22,6 @@ func main() {
 	if useTCPLoadBalacing {
 		registry.RegisterHandler(registryInteractor)
 	}
+
+	registry.Start()
 }

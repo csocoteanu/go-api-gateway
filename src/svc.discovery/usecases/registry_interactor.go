@@ -70,5 +70,5 @@ func (si serviceRegistryInteractor) Start() {
 }
 
 func (si serviceRegistryInteractor) Stop() {
-
+	si.quitChan <- struct{}{}
 }

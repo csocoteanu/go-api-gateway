@@ -58,12 +58,12 @@ func (c *client) GetServices() ([]*domain.RegistrantInfo, error) {
 	}
 
 	registrants := []*domain.RegistrantInfo{}
-	for _, serviceInfo := range resp.ServiceInfos {
-		for _, ip := range serviceInfo.ServiceLocalAddress {
+	for _, si := range resp.ServiceInfos {
+		for _, ip := range si.ServiceLocalAddress {
 			rInfo := domain.RegistrantInfo{
-				ServiceLocalAddress:    serviceInfo.ServiceBalancerAddress,
-				ServiceName:            serviceInfo.ServiceName,
-				ServiceBalancerAddress: ip,
+				ServiceLocalAddress:    ip,
+				ServiceName:            si.ServiceName,
+				ServiceBalancerAddress: si.ServiceBalancerAddress,
 			}
 
 			registrants = append(registrants, &rInfo)

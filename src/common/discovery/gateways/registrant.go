@@ -4,6 +4,7 @@ import (
 	"common/discovery/domain"
 	discovery "common/discovery/domain/protos"
 	"context"
+	"fmt"
 	"github.com/eapache/go-resiliency/retrier"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
@@ -37,6 +38,8 @@ func NewRegistrantService(
 		registryAddress: registryAddress,
 		connectedLock:   &sync.Mutex{},
 	}
+
+	log.Printf("Creating registry: %s", s.String())
 
 	go s.connectToRegistry()
 
@@ -153,4 +156,8 @@ func (s *registrantService) setUpdatedTime() {
 	s.connectedLock.Lock()
 	s.lastUpdatedTime = time.Now()
 	s.connectedLock.Unlock()
+}
+
+func (s *registrantService) String() string {
+	return fmt.Sprintf("%s[%s] local=%s control=%s", s.serviceName, s.balancerAddress, s.localAddress, s.controlAddress)
 }
