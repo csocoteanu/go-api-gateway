@@ -2,10 +2,26 @@ syntax = "proto3";
 
 package discovery.protos;
 
+import "google/api/annotations.proto";
+
 service RegistryService {
-    rpc Register(RegisterRequest) returns (RegisterResponse) {}
-    rpc Unregister(UnregisterRequest) returns (UnregisterResponse) {}
-    rpc GetServices(GetServicesRequest) returns (ServicesResponse) {}
+    rpc Register(RegisterRequest) returns (RegisterResponse) {
+        option (google.api.http) = {
+            post: "/api-gw/v1/registry/register"
+            body: "*"
+        };
+    }
+    rpc Unregister(UnregisterRequest) returns (UnregisterResponse) {
+        option (google.api.http) = {
+            post: "/api-gw/v1/registry/unregister"
+            body: "*"
+        };
+    }
+    rpc GetServices(GetServicesRequest) returns (ServicesResponse) {
+        option (google.api.http) = {
+            get: "/api-gw/v1/registry/services"
+        };
+    }
 }
 
 service RegistrantService {

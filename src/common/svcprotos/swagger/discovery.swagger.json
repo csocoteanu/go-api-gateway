@@ -1,0 +1,207 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "protos/discovery.proto",
+    "version": "version not set"
+  },
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/api-gw/v1/registry/register": {
+      "post": {
+        "operationId": "Register",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/protosRegisterResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/protosRegisterRequest"
+            }
+          }
+        ],
+        "tags": [
+          "RegistryService"
+        ]
+      }
+    },
+    "/api-gw/v1/registry/services": {
+      "get": {
+        "operationId": "GetServices",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/protosServicesResponse"
+            }
+          }
+        },
+        "tags": [
+          "RegistryService"
+        ]
+      }
+    },
+    "/api-gw/v1/registry/unregister": {
+      "post": {
+        "operationId": "Unregister",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/protosUnregisterResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/protosUnregisterRequest"
+            }
+          }
+        ],
+        "tags": [
+          "RegistryService"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "protosError": {
+      "type": "object",
+      "properties": {
+        "Code": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "Message": {
+          "type": "string"
+        }
+      }
+    },
+    "protosHeartbeatResponse": {
+      "type": "object",
+      "properties": {
+        "Message": {
+          "type": "string"
+        },
+        "Success": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "Errors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/protosError"
+          }
+        }
+      }
+    },
+    "protosRegisterRequest": {
+      "type": "object",
+      "properties": {
+        "controlAddress": {
+          "type": "string"
+        },
+        "serviceName": {
+          "type": "string"
+        },
+        "serviceBalancerAddress": {
+          "type": "string"
+        },
+        "serviceLocalAddress": {
+          "type": "string"
+        }
+      }
+    },
+    "protosRegisterResponse": {
+      "type": "object",
+      "properties": {
+        "Message": {
+          "type": "string"
+        },
+        "Success": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "Errors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/protosError"
+          }
+        }
+      }
+    },
+    "protosServiceInfo": {
+      "type": "object",
+      "properties": {
+        "serviceName": {
+          "type": "string"
+        },
+        "serviceBalancerAddress": {
+          "type": "string"
+        },
+        "serviceLocalAddress": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "protosServicesResponse": {
+      "type": "object",
+      "properties": {
+        "serviceInfos": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/protosServiceInfo"
+          }
+        }
+      }
+    },
+    "protosUnregisterRequest": {
+      "type": "object",
+      "properties": {
+        "serviceName": {
+          "type": "string"
+        },
+        "controlAddress": {
+          "type": "string"
+        }
+      }
+    },
+    "protosUnregisterResponse": {
+      "type": "object",
+      "properties": {
+        "Message": {
+          "type": "string"
+        },
+        "Success": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "Errors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/protosError"
+          }
+        }
+      }
+    }
+  }
+}

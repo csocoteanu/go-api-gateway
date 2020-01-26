@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"common/discovery/domain"
+	"common/discovery/domain/protos"
 	protos "common/svcprotos/gen"
 	"context"
 	"fmt"
@@ -35,7 +36,7 @@ func NewProxyManager() *ProxyManager {
 		removed:           make(chan domain.RegistrantInfo),
 	}
 
-	m.listenForRegistrants()
+	go m.listenForRegistrants()
 
 	return &m
 }
@@ -53,23 +54,26 @@ func (m *ProxyManager) GetServerMux() *runtime.ServeMux {
 }
 
 func (m *ProxyManager) listenForRegistrants() {
-	go func() {
-		for {
-			select {
-			case registrant := <-m.added:
-				fmt.Printf("Registering GRPC service=%s address=%s\n", registrant.ServiceName, registrant.ServiceBalancerAddress)
+	err := discovery_protos.RegisterRegistryServiceHandlerFromEndpoint(context.Background(), m.serverMux, domain.RegistryAddress, m.grpcOpts)
+	if err != nil {
+		log.Printf("Error encountered: %s", err.Error())
+	}
 
-				callback, ok := m.registerCallbacks[registrant.ServiceName]
-				if !ok {
-					log.Printf("No service register handler for %s", registrant.ServiceName)
-				}
+	for {
+		select {
+		case registrant := <-m.added:
+			fmt.Printf("Registering GRPC service=%s address=%s\n", registrant.ServiceName, registrant.ServiceBalancerAddress)
 
-				err := callback(context.Background(), m.serverMux, registrant.ServiceBalancerAddress, m.grpcOpts)
-				if err != nil {
-					fmt.Printf("Error encountered: %s", err.Error())
-				}
-			case <-m.removed:
+			callback, ok := m.registerCallbacks[registrant.ServiceName]
+			if !ok {
+				log.Printf("No service register handler for %s", registrant.ServiceName)
 			}
+
+			err := callback(context.Background(), m.serverMux, registrant.ServiceBalancerAddress, m.grpcOpts)
+			if err != nil {
+				log.Printf("Error encountered: %s", err.Error())
+			}
+		case <-m.removed:
 		}
-	}()
+	}
 }

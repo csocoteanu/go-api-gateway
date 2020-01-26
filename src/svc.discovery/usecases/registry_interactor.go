@@ -2,7 +2,6 @@ package usecases
 
 import (
 	"common/discovery/domain"
-	"common/discovery/gateways"
 	"sync"
 )
 
@@ -47,7 +46,7 @@ func (si serviceRegistryInteractor) Start() {
 			si.tcpLoadBalancersLock.Lock()
 			lb, ok := si.tcpLoadBalancers[rInfo.ServiceName]
 			if !ok {
-				lb = gateways.NewTcpLoadBalancer(rInfo.ServiceBalancerAddress)
+				lb = NewTcpLoadBalancer(rInfo.ServiceBalancerAddress)
 				si.tcpLoadBalancers[rInfo.ServiceName] = lb
 			}
 			lb.AddProxy(rInfo.ServiceLocalAddress)

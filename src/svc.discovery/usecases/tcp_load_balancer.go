@@ -1,4 +1,4 @@
-package gateways
+package usecases
 
 import (
 	"common/discovery/domain"
