@@ -1,23 +1,23 @@
 package usecases
 
 import (
-	protos "common/svcprotos/gen"
+	pb "common/protos/gen"
 	"context"
 	"fmt"
 )
 
 type echoService struct{}
 
-func NewEchoService() protos.EchoServiceServer {
+func NewEchoService() pb.EchoServiceServer {
 	s := echoService{}
 
 	return &s
 }
 
-func (s *echoService) Echo(ctx context.Context, req *protos.EchoRequest) (*protos.EchoResponse, error) {
+func (s *echoService) Echo(ctx context.Context, req *pb.EchoRequest) (*pb.EchoResponse, error) {
 	fmt.Printf("Received request with message=%s\n", req.Message)
 
-	resp := protos.EchoResponse{
+	resp := pb.EchoResponse{
 		Message: req.Message,
 	}
 

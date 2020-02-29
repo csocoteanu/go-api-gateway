@@ -1,7 +1,7 @@
 package pingpong
 
 import (
-	protos "common/svcprotos/gen"
+	pb "common/protos/gen"
 	"context"
 	"fmt"
 	"github.com/pkg/errors"
@@ -9,15 +9,15 @@ import (
 )
 
 type Client interface {
-	SendPing(note string) (*protos.PingPongResponse, error)
-	SendPong(note string) (*protos.PingPongResponse, error)
+	SendPing(note string) (*pb.PingPongResponse, error)
+	SendPong(note string) (*pb.PingPongResponse, error)
 }
 
 type client struct {
 	serverAddress string
 	port          int
 	conn          *grpc.ClientConn
-	grpcClient    protos.PingPongServiceClient
+	grpcClient    pb.PingPongServiceClient
 }
 
 func NewClient(serverAddress string, port int) (Client, error) {
@@ -43,16 +43,16 @@ func (c *client) init() error {
 	}
 
 	c.conn = conn
-	c.grpcClient = protos.NewPingPongServiceClient(conn)
+	c.grpcClient = pb.NewPingPongServiceClient(conn)
 
 	return nil
 }
 
-func (c *client) SendPing(note string) (*protos.PingPongResponse, error) {
+func (c *client) SendPing(note string) (*pb.PingPongResponse, error) {
 	ctx := context.Background()
-	pType := protos.PingPongType_PING
+	pType := pb.PingPongType_PING
 
-	req := protos.PingPongRequest{
+	req := pb.PingPongRequest{
 		Type: pType,
 		Note: note,
 	}
@@ -60,11 +60,11 @@ func (c *client) SendPing(note string) (*protos.PingPongResponse, error) {
 	return c.grpcClient.Ping(ctx, &req)
 }
 
-func (c *client) SendPong(note string) (*protos.PingPongResponse, error) {
+func (c *client) SendPong(note string) (*pb.PingPongResponse, error) {
 	ctx := context.Background()
-	pType := protos.PingPongType_PONG
+	pType := pb.PingPongType_PONG
 
-	req := protos.PingPongRequest{
+	req := pb.PingPongRequest{
 		Type: pType,
 		Note: note,
 	}

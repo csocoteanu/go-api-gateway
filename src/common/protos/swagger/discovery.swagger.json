@@ -1,7 +1,7 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "protos/discovery.proto",
+    "title": "discovery.proto",
     "version": "version not set"
   },
   "consumes": [
@@ -18,7 +18,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/protosRegisterResponse"
+              "$ref": "#/definitions/genRegisterResponse"
             }
           }
         },
@@ -28,7 +28,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/protosRegisterRequest"
+              "$ref": "#/definitions/genRegisterRequest"
             }
           }
         ],
@@ -44,7 +44,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/protosServicesResponse"
+              "$ref": "#/definitions/genServicesResponse"
             }
           }
         },
@@ -60,7 +60,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/protosUnregisterResponse"
+              "$ref": "#/definitions/genUnregisterResponse"
             }
           }
         },
@@ -70,7 +70,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/protosUnregisterRequest"
+              "$ref": "#/definitions/genUnregisterRequest"
             }
           }
         ],
@@ -81,7 +81,7 @@
     }
   },
   "definitions": {
-    "protosError": {
+    "genError": {
       "type": "object",
       "properties": {
         "Code": {
@@ -93,7 +93,7 @@
         }
       }
     },
-    "protosHeartbeatResponse": {
+    "genHeartbeatResponse": {
       "type": "object",
       "properties": {
         "Message": {
@@ -106,12 +106,12 @@
         "Errors": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/protosError"
+            "$ref": "#/definitions/genError"
           }
         }
       }
     },
-    "protosRegisterRequest": {
+    "genRegisterRequest": {
       "type": "object",
       "properties": {
         "controlAddress": {
@@ -128,7 +128,7 @@
         }
       }
     },
-    "protosRegisterResponse": {
+    "genRegisterResponse": {
       "type": "object",
       "properties": {
         "Message": {
@@ -141,12 +141,12 @@
         "Errors": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/protosError"
+            "$ref": "#/definitions/genError"
           }
         }
       }
     },
-    "protosServiceInfo": {
+    "genServiceInfo": {
       "type": "object",
       "properties": {
         "serviceName": {
@@ -163,18 +163,18 @@
         }
       }
     },
-    "protosServicesResponse": {
+    "genServicesResponse": {
       "type": "object",
       "properties": {
         "serviceInfos": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/protosServiceInfo"
+            "$ref": "#/definitions/genServiceInfo"
           }
         }
       }
     },
-    "protosUnregisterRequest": {
+    "genUnregisterRequest": {
       "type": "object",
       "properties": {
         "serviceName": {
@@ -185,7 +185,7 @@
         }
       }
     },
-    "protosUnregisterResponse": {
+    "genUnregisterResponse": {
       "type": "object",
       "properties": {
         "Message": {
@@ -198,7 +198,7 @@
         "Errors": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/protosError"
+            "$ref": "#/definitions/genError"
           }
         }
       }

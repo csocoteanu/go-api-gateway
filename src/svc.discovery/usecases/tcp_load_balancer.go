@@ -1,7 +1,7 @@
 package usecases
 
 import (
-	"common/discovery/domain"
+	"common"
 	"github.com/pkg/errors"
 	"io"
 	"log"
@@ -25,7 +25,7 @@ type tcpLoadBalancer struct {
 	instanceID        int
 }
 
-func NewTcpLoadBalancer(lbAddress string) domain.TCPLoadBalancer {
+func NewTcpLoadBalancer(lbAddress string) common.TCPLoadBalancer {
 	lb := tcpLoadBalancer{
 		lbAddress:      lbAddress,
 		proxyLock:      &sync.Mutex{},

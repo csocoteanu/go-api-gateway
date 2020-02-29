@@ -1,8 +1,8 @@
 package handlers
 
 import (
+	"common"
 	"common/clients/discovery"
-	"common/discovery/domain"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	swaggerDirectory = "../common/svcprotos/swagger"
+	swaggerDirectory = "../common/protos/swagger"
 	swaggerDistro    = "../swagger-ui/dist"
 )
 
@@ -22,11 +22,11 @@ type ServiceInfo struct {
 }
 
 type APIManager struct {
-	handler domain.RegisterHandler
+	handler common.RegisterHandler
 	client  discovery.Client
 }
 
-func NewAPIManager(handler domain.RegisterHandler, client discovery.Client) *APIManager {
+func NewAPIManager(handler common.RegisterHandler, client discovery.Client) *APIManager {
 	m := APIManager{
 		handler: handler,
 		client:  client,

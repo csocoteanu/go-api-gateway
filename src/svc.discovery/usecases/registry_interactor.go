@@ -1,26 +1,26 @@
 package usecases
 
 import (
-	"common/discovery/domain"
+	"common"
 	"sync"
 )
 
 type serviceRegistryInteractor struct {
 	tcpLoadBalancersLock *sync.Mutex
-	tcpLoadBalancers     map[string]domain.TCPLoadBalancer
-	registry             domain.ServiceRegistry
-	serviceRegistered    chan domain.RegistrantInfo
-	serviceDeregistered  chan domain.RegistrantInfo
+	tcpLoadBalancers     map[string]common.TCPLoadBalancer
+	registry             common.ServiceRegistry
+	serviceRegistered    chan common.RegistrantInfo
+	serviceDeregistered  chan common.RegistrantInfo
 	quitChan             chan struct{}
 }
 
-func NewServiceRegistryInteractor(registry domain.ServiceRegistry) domain.RegisterHandler {
+func NewServiceRegistryInteractor(registry common.ServiceRegistry) common.RegisterHandler {
 	si := serviceRegistryInteractor{
 		tcpLoadBalancersLock: &sync.Mutex{},
-		tcpLoadBalancers:     make(map[string]domain.TCPLoadBalancer),
+		tcpLoadBalancers:     make(map[string]common.TCPLoadBalancer),
 		registry:             registry,
-		serviceRegistered:    make(chan domain.RegistrantInfo),
-		serviceDeregistered:  make(chan domain.RegistrantInfo),
+		serviceRegistered:    make(chan common.RegistrantInfo),
+		serviceDeregistered:  make(chan common.RegistrantInfo),
 		quitChan:             make(chan struct{}),
 	}
 
@@ -29,11 +29,11 @@ func NewServiceRegistryInteractor(registry domain.ServiceRegistry) domain.Regist
 	return &si
 }
 
-func (si serviceRegistryInteractor) OnServiceRegistered() chan domain.RegistrantInfo {
+func (si serviceRegistryInteractor) OnServiceRegistered() chan common.RegistrantInfo {
 	return si.serviceRegistered
 }
 
-func (si serviceRegistryInteractor) OnServiceUnregistered() chan domain.RegistrantInfo {
+func (si serviceRegistryInteractor) OnServiceUnregistered() chan common.RegistrantInfo {
 	return si.serviceDeregistered
 }
 

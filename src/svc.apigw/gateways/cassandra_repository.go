@@ -1,7 +1,7 @@
 package gateways
 
 import (
-	"common/discovery/domain"
+	"common"
 	"fmt"
 	"github.com/gocql/gocql"
 	"time"
@@ -33,7 +33,7 @@ func NewCassandraRepository(cfg *CassandraConfig) (*cassandraRepository, error) 
 	return &repo, nil
 }
 
-func (repo *cassandraRepository) StoreRegistrantInfo(rInfo *domain.RegistrantInfo) error {
+func (repo *cassandraRepository) StoreRegistrantInfo(rInfo *common.RegistrantInfo) error {
 	if rInfo == nil {
 		return nil
 	}
@@ -48,7 +48,7 @@ func (repo *cassandraRepository) StoreRegistrantInfo(rInfo *domain.RegistrantInf
 		rInfo.ServiceLocalAddress).Exec()
 }
 
-func (repo *cassandraRepository) RemoveRegistrantInfo(rInfo *domain.RegistrantInfo) error {
+func (repo *cassandraRepository) RemoveRegistrantInfo(rInfo *common.RegistrantInfo) error {
 	if rInfo == nil {
 		return nil
 	}
@@ -61,16 +61,16 @@ func (repo *cassandraRepository) RemoveRegistrantInfo(rInfo *domain.RegistrantIn
 		rInfo.ControlAddress).Exec()
 }
 
-func (repo *cassandraRepository) GetAllRegistrantInfos() ([]*domain.RegistrantInfo, error) {
+func (repo *cassandraRepository) GetAllRegistrantInfos() ([]*common.RegistrantInfo, error) {
 	serviceName := ""
 	controlAddress := ""
 	serviceBalancerAddress := ""
 	serviceLocalAddress := ""
-	rInfos := []*domain.RegistrantInfo{}
+	rInfos := []*common.RegistrantInfo{}
 
 	iter := repo.session.Query("SELECT service_name, control_address, service_balancer_address, service_local_address FROM %s", repo.config.ServicesTableName).Iter()
 	for iter.Scan(&serviceName, &controlAddress, &serviceBalancerAddress, &serviceLocalAddress) {
-		rInfo := domain.NewRegistrantInfo(controlAddress, serviceName, serviceBalancerAddress, serviceLocalAddress)
+		rInfo := common.NewRegistrantInfo(controlAddress, serviceName, serviceBalancerAddress, serviceLocalAddress)
 		rInfos = append(rInfos, &rInfo)
 	}
 

@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package discovery.protos;
+package apigw.protos.gen;
 
 import "google/api/annotations.proto";
 

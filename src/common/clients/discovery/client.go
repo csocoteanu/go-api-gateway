@@ -1,8 +1,8 @@
 package discovery
 
 import (
-	"common/discovery/domain"
-	discovery "common/discovery/domain/protos"
+	"common"
+	pb "common/protos/gen"
 	"fmt"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
@@ -10,14 +10,14 @@ import (
 )
 
 type Client interface {
-	GetServices() ([]*domain.RegistrantInfo, error)
+	GetServices() ([]*common.RegistrantInfo, error)
 }
 
 type client struct {
 	serverAddress string
 	port          int
 	conn          *grpc.ClientConn
-	grpcClient    discovery.RegistryServiceClient
+	grpcClient    pb.RegistryServiceClient
 }
 
 func NewClient(serverAddress string, port int) (Client, error) {
@@ -43,24 +43,24 @@ func (c *client) init() error {
 	}
 
 	c.conn = conn
-	c.grpcClient = discovery.NewRegistryServiceClient(conn)
+	c.grpcClient = pb.NewRegistryServiceClient(conn)
 
 	return nil
 }
 
-func (c *client) GetServices() ([]*domain.RegistrantInfo, error) {
+func (c *client) GetServices() ([]*common.RegistrantInfo, error) {
 	ctx := context.Background()
-	req := &discovery.GetServicesRequest{}
+	req := &pb.GetServicesRequest{}
 
 	resp, err := c.grpcClient.GetServices(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 
-	registrants := []*domain.RegistrantInfo{}
+	registrants := []*common.RegistrantInfo{}
 	for _, si := range resp.ServiceInfos {
 		for _, ip := range si.ServiceLocalAddress {
-			rInfo := domain.RegistrantInfo{
+			rInfo := common.RegistrantInfo{
 				ServiceLocalAddress:    ip,
 				ServiceName:            si.ServiceName,
 				ServiceBalancerAddress: si.ServiceBalancerAddress,

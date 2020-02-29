@@ -1,8 +1,8 @@
-package gateways
+package usecases
 
 import (
-	"common/discovery/domain"
-	discovery "common/discovery/domain/protos"
+	"common"
+	pb "common/protos/gen"
 	"context"
 	"fmt"
 	"github.com/eapache/go-resiliency/retrier"
@@ -17,10 +17,10 @@ import (
 const maxHeartBeatRetries = 1
 
 type healthChecker struct {
-	info   domain.RegistrantInfo
+	info   common.RegistrantInfo
 	ticker *time.Ticker
 	quit   chan struct{}
-	done   chan domain.RegistrantInfo
+	done   chan common.RegistrantInfo
 }
 
 type serviceRegistry struct {
@@ -28,32 +28,32 @@ type serviceRegistry struct {
 	port               uint32
 	healthCheckers     map[string][]*healthChecker
 	healthCheckersLock *sync.RWMutex
-	healthCheckerExit  chan domain.RegistrantInfo
-	handlers           []domain.RegisterHandler
+	healthCheckerExit  chan common.RegistrantInfo
+	handlers           []common.RegisterHandler
 }
 
 // NewServiceRegistryServer creates a new service registry instance
-func NewServiceRegistryServer(hostname string, port uint32) domain.ServiceRegistry {
+func NewServiceRegistryServer(hostname string, port uint32) common.ServiceRegistry {
 	s := serviceRegistry{
 		hostname:           hostname,
 		port:               port,
 		healthCheckers:     make(map[string][]*healthChecker),
 		healthCheckersLock: &sync.RWMutex{},
-		healthCheckerExit:  make(chan domain.RegistrantInfo),
+		healthCheckerExit:  make(chan common.RegistrantInfo),
 	}
 
 	return &s
 }
 
-func (s *serviceRegistry) Register(ctx context.Context, req *discovery.RegisterRequest) (*discovery.RegisterResponse, error) {
+func (s *serviceRegistry) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
 	if len(req.ControlAddress) == 0 ||
 		len(req.ServiceName) == 0 ||
 		len(req.ServiceBalancerAddress) == 0 ||
 		len(req.ServiceLocalAddress) == 0 {
-		return nil, domain.ErrInvalidRequest
+		return nil, common.ErrInvalidRequest
 	}
 
-	rInfo := domain.NewRegistrantInfo(req.ControlAddress, req.ServiceName, req.ServiceBalancerAddress, req.ServiceLocalAddress)
+	rInfo := common.NewRegistrantInfo(req.ControlAddress, req.ServiceName, req.ServiceBalancerAddress, req.ServiceLocalAddress)
 
 	log.Printf("Received register request: %s", rInfo.String())
 
@@ -62,16 +62,16 @@ func (s *serviceRegistry) Register(ctx context.Context, req *discovery.RegisterR
 		return nil, err
 	}
 
-	resp := discovery.RegisterResponse{
-		Message: domain.ACK,
+	resp := pb.RegisterResponse{
+		Message: common.ACK,
 		Success: true,
 	}
 	return &resp, nil
 }
 
-func (s *serviceRegistry) Unregister(ctx context.Context, req *discovery.UnregisterRequest) (*discovery.UnregisterResponse, error) {
+func (s *serviceRegistry) Unregister(ctx context.Context, req *pb.UnregisterRequest) (*pb.UnregisterResponse, error) {
 	if len(req.ServiceName) == 0 {
-		return nil, domain.ErrInvalidRequest
+		return nil, common.ErrInvalidRequest
 	}
 
 	log.Printf("Trying to unregister service=%s control=%s", req.ServiceName, req.ControlAddress)
@@ -82,7 +82,7 @@ func (s *serviceRegistry) Unregister(ctx context.Context, req *discovery.Unregis
 	hCheckers, ok := s.healthCheckers[req.ServiceName]
 	if !ok {
 		log.Printf("Service with name=%s does not exist! Skipping...", req.ServiceName)
-		return nil, domain.ErrRegistrantMissing
+		return nil, common.ErrRegistrantMissing
 	}
 
 	for _, hChecker := range hCheckers {
@@ -91,21 +91,21 @@ func (s *serviceRegistry) Unregister(ctx context.Context, req *discovery.Unregis
 		}
 	}
 
-	resp := discovery.UnregisterResponse{
+	resp := pb.UnregisterResponse{
 		Success: true,
-		Message: domain.ACK,
+		Message: common.ACK,
 	}
 	return &resp, nil
 }
 
-func (s *serviceRegistry) GetServices(ctx context.Context, req *discovery.GetServicesRequest) (*discovery.ServicesResponse, error) {
+func (s *serviceRegistry) GetServices(ctx context.Context, req *pb.GetServicesRequest) (*pb.ServicesResponse, error) {
 	s.healthCheckersLock.RLock()
 	defer s.healthCheckersLock.RUnlock()
 
-	result := &discovery.ServicesResponse{}
+	result := &pb.ServicesResponse{}
 
 	for serviceName, hCheckers := range s.healthCheckers {
-		serviceInfo := &discovery.ServiceInfo{}
+		serviceInfo := &pb.ServiceInfo{}
 		serviceInfo.ServiceName = serviceName
 
 		for _, hChecker := range hCheckers {
@@ -119,11 +119,11 @@ func (s *serviceRegistry) GetServices(ctx context.Context, req *discovery.GetSer
 	return result, nil
 }
 
-func (s *serviceRegistry) RegisterHandler(h domain.RegisterHandler) {
+func (s *serviceRegistry) RegisterHandler(h common.RegisterHandler) {
 	s.handlers = append(s.handlers, h)
 }
 
-func (s *serviceRegistry) Load(rInfos ...domain.RegistrantInfo) error {
+func (s *serviceRegistry) Load(rInfos ...common.RegistrantInfo) error {
 	s.healthCheckersLock.Lock()
 	defer s.healthCheckersLock.Unlock()
 
@@ -133,7 +133,7 @@ func (s *serviceRegistry) Load(rInfos ...domain.RegistrantInfo) error {
 			for _, hChecker := range hCheckers {
 				if hChecker.info.ControlAddress == rInfo.ControlAddress {
 					log.Printf("Already registered service=%s address=%s", rInfo.ServiceName, rInfo.ControlAddress)
-					return domain.ErrRegistrantExists
+					return common.ErrRegistrantExists
 				}
 			}
 		}
@@ -162,7 +162,7 @@ func (s *serviceRegistry) Start() {
 	}
 
 	grpcServer := grpc.NewServer()
-	discovery.RegisterRegistryServiceServer(grpcServer, s)
+	pb.RegisterRegistryServiceServer(grpcServer, s)
 
 	err = grpcServer.Serve(sock)
 	if err != nil {
@@ -185,7 +185,7 @@ func (s *serviceRegistry) startRemoveHealthChecker() {
 	}
 }
 
-func (s *serviceRegistry) removeHealthChecker(rInfo domain.RegistrantInfo) {
+func (s *serviceRegistry) removeHealthChecker(rInfo common.RegistrantInfo) {
 	log.Printf("Removing healthchecker for %s", rInfo.String())
 
 	s.healthCheckersLock.Lock()
@@ -213,7 +213,7 @@ func (s *serviceRegistry) removeHealthChecker(rInfo domain.RegistrantInfo) {
 	}
 }
 
-func newHealthChecker(info domain.RegistrantInfo, done chan domain.RegistrantInfo) *healthChecker {
+func newHealthChecker(info common.RegistrantInfo, done chan common.RegistrantInfo) *healthChecker {
 	r := healthChecker{
 		info: info,
 		quit: make(chan struct{}),
@@ -267,12 +267,12 @@ func (r *healthChecker) sendHeartBeat() error {
 		return errors.Wrapf(err, "failed connecting to service=%s at address=%s", r.info.ServiceName, r.info.ControlAddress)
 	}
 
-	var resp *discovery.HeartbeatResponse
+	var resp *pb.HeartbeatResponse
 	var expRetrier = retrier.New(retrier.ExponentialBackoff(4, 500*time.Millisecond), nil)
 
 	if err := expRetrier.Run(func() error {
-		grpcClient := discovery.NewRegistrantServiceClient(conn)
-		req := discovery.HeartbeatRequest{}
+		grpcClient := pb.NewRegistrantServiceClient(conn)
+		req := pb.HeartbeatRequest{}
 
 		resp, err = grpcClient.HeartBeat(context.Background(), &req)
 		if err != nil {
@@ -285,11 +285,11 @@ func (r *healthChecker) sendHeartBeat() error {
 	}
 
 	if resp == nil {
-		return domain.ErrHeartBeatFailed
+		return common.ErrHeartBeatFailed
 	}
 
 	if !resp.Success {
-		return domain.AggregateErrors(resp.Errors...)
+		return common.AggregateErrors(resp.Errors...)
 	}
 
 	return nil

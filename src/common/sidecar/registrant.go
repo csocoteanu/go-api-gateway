@@ -1,8 +1,8 @@
-package gateways
+package sidecar
 
 import (
-	"common/discovery/domain"
-	discovery "common/discovery/domain/protos"
+	"common"
+	pb "common/protos/gen"
 	"context"
 	"fmt"
 	"github.com/eapache/go-resiliency/retrier"
@@ -28,7 +28,7 @@ type registrantService struct {
 func NewRegistrantService(
 	controlAddress string,
 	registryAddress string,
-	serviceName, serviceBalancerAddress, serviceLocalAddress string) discovery.RegistrantServiceServer {
+	serviceName, serviceBalancerAddress, serviceLocalAddress string) pb.RegistrantServiceServer {
 
 	s := registrantService{
 		serviceName:     serviceName,
@@ -53,13 +53,13 @@ func NewRegistrantService(
 }
 
 // HeartBeat is the gRPC implementation of the HeartBeat method
-func (s *registrantService) HeartBeat(ctx context.Context, req *discovery.HeartbeatRequest) (*discovery.HeartbeatResponse, error) {
+func (s *registrantService) HeartBeat(ctx context.Context, req *pb.HeartbeatRequest) (*pb.HeartbeatResponse, error) {
 	log.Printf("Received heartbeat (%s)....", req.Message)
 
 	s.setUpdatedTime()
 
-	resp := discovery.HeartbeatResponse{
-		Message: domain.ACK,
+	resp := pb.HeartbeatResponse{
+		Message: common.ACK,
 		Success: true,
 	}
 
@@ -74,12 +74,12 @@ func (s *registrantService) register() error {
 		return errors.Wrapf(err, "failed connecting to server at %s", s.registryAddress)
 	}
 
-	var resp *discovery.RegisterResponse
+	var resp *pb.RegisterResponse
 	var expRetrier = retrier.New(retrier.ExponentialBackoff(4, 500*time.Millisecond), nil)
 
 	if err := expRetrier.Run(func() error {
-		grpcClient := discovery.NewRegistryServiceClient(conn)
-		req := discovery.RegisterRequest{
+		grpcClient := pb.NewRegistryServiceClient(conn)
+		req := pb.RegisterRequest{
 			ControlAddress:         s.controlAddress,
 			ServiceName:            s.serviceName,
 			ServiceBalancerAddress: s.balancerAddress,
@@ -98,10 +98,10 @@ func (s *registrantService) register() error {
 	}
 
 	if resp == nil {
-		return domain.ErrRegisterFailed
+		return common.ErrRegisterFailed
 	}
 	if !resp.Success {
-		return domain.AggregateErrors(resp.Errors...)
+		return common.AggregateErrors(resp.Errors...)
 	}
 
 	s.setUpdatedTime()
@@ -116,7 +116,7 @@ func (s *registrantService) listenForHeartBeats() error {
 		return err
 	}
 	grpcServer := grpc.NewServer()
-	discovery.RegisterRegistrantServiceServer(grpcServer, s)
+	pb.RegisterRegistrantServiceServer(grpcServer, s)
 
 	err = grpcServer.Serve(sock)
 	if err != nil {

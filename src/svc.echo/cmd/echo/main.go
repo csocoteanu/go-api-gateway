@@ -1,7 +1,7 @@
 package main
 
 import (
-	protos "common/svcprotos/gen"
+	pb "common/protos/gen"
 	"context"
 	"fmt"
 	"google.golang.org/grpc"
@@ -19,9 +19,9 @@ func main() {
 		log.Fatalf("Failed connecting to server at %s! ERR=%s", address, err.Error())
 	}
 
-	client := protos.NewEchoServiceClient(conn)
+	client := pb.NewEchoServiceClient(conn)
 	ctx := context.Background()
-	req := protos.EchoRequest{Message: "Hello"}
+	req := pb.EchoRequest{Message: "Hello"}
 
 	resp, err := client.Echo(ctx, &req)
 	if err != nil {

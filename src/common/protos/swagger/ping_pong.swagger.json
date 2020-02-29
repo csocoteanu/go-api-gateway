@@ -1,7 +1,7 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "protos/ping_pong.proto",
+    "title": "ping_pong.proto",
     "version": "version not set"
   },
   "consumes": [

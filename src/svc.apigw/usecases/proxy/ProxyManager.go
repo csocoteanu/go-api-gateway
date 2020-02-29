@@ -1,9 +1,8 @@
 package proxy
 
 import (
-	"common/discovery/domain"
-	"common/discovery/domain/protos"
-	protos "common/svcprotos/gen"
+	"common"
+	pb "common/protos/gen"
 	"context"
 	"fmt"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -15,16 +14,16 @@ type registerCallback func(context.Context, *runtime.ServeMux, string, []grpc.Di
 
 type ProxyManager struct {
 	serverMux         *runtime.ServeMux
-	added             chan domain.RegistrantInfo
-	removed           chan domain.RegistrantInfo
+	added             chan common.RegistrantInfo
+	removed           chan common.RegistrantInfo
 	grpcOpts          []grpc.DialOption
 	registerCallbacks map[string]registerCallback
 }
 
 func NewProxyManager() *ProxyManager {
 	callbacks := map[string]registerCallback{
-		domain.PingPongServiceName: protos.RegisterPingPongServiceHandlerFromEndpoint,
-		domain.EchoServiceName:     protos.RegisterEchoServiceHandlerFromEndpoint,
+		common.PingPongServiceName: pb.RegisterPingPongServiceHandlerFromEndpoint,
+		common.EchoServiceName:     pb.RegisterEchoServiceHandlerFromEndpoint,
 	}
 	opts := []grpc.DialOption{grpc.WithInsecure()}
 
@@ -32,8 +31,8 @@ func NewProxyManager() *ProxyManager {
 		serverMux:         runtime.NewServeMux(),
 		grpcOpts:          opts,
 		registerCallbacks: callbacks,
-		added:             make(chan domain.RegistrantInfo),
-		removed:           make(chan domain.RegistrantInfo),
+		added:             make(chan common.RegistrantInfo),
+		removed:           make(chan common.RegistrantInfo),
 	}
 
 	go m.listenForRegistrants()
@@ -41,11 +40,11 @@ func NewProxyManager() *ProxyManager {
 	return &m
 }
 
-func (m *ProxyManager) OnServiceRegistered() chan domain.RegistrantInfo {
+func (m *ProxyManager) OnServiceRegistered() chan common.RegistrantInfo {
 	return m.added
 }
 
-func (m *ProxyManager) OnServiceUnregistered() chan domain.RegistrantInfo {
+func (m *ProxyManager) OnServiceUnregistered() chan common.RegistrantInfo {
 	return m.removed
 }
 
@@ -54,7 +53,7 @@ func (m *ProxyManager) GetServerMux() *runtime.ServeMux {
 }
 
 func (m *ProxyManager) listenForRegistrants() {
-	err := discovery_protos.RegisterRegistryServiceHandlerFromEndpoint(context.Background(), m.serverMux, domain.RegistryAddress, m.grpcOpts)
+	err := pb.RegisterRegistryServiceHandlerFromEndpoint(context.Background(), m.serverMux, common.RegistryAddress, m.grpcOpts)
 	if err != nil {
 		log.Printf("Error encountered: %s", err.Error())
 	}

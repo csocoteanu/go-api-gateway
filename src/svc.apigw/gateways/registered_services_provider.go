@@ -1,13 +1,13 @@
 package gateways
 
-import "common/discovery/domain"
+import "common"
 
 type registeredServicesProvider struct {
-	registrants []domain.RegistrantInfo
-	handlers    []domain.RegisterHandler
+	registrants []common.RegistrantInfo
+	handlers    []common.RegisterHandler
 }
 
-func NewRegisteredServicesProvider() domain.ServiceRegistry {
+func NewRegisteredServicesProvider() common.ServiceRegistry {
 	sp := registeredServicesProvider{
 		registrants: getRegistrants(),
 	}
@@ -15,7 +15,7 @@ func NewRegisteredServicesProvider() domain.ServiceRegistry {
 	return &sp
 }
 
-func (sp *registeredServicesProvider) RegisterHandler(h domain.RegisterHandler) {
+func (sp *registeredServicesProvider) RegisterHandler(h common.RegisterHandler) {
 	sp.handlers = append(sp.handlers, h)
 }
 
@@ -27,14 +27,14 @@ func (sp *registeredServicesProvider) Start() {
 	}
 }
 
-func getRegistrants() []domain.RegistrantInfo {
-	return []domain.RegistrantInfo{
+func getRegistrants() []common.RegistrantInfo {
+	return []common.RegistrantInfo{
 		{
-			ServiceName:            domain.EchoServiceName,
+			ServiceName:            common.EchoServiceName,
 			ServiceBalancerAddress: "localhost:10010",
 		},
 		{
-			ServiceName:            domain.PingPongServiceName,
+			ServiceName:            common.PingPongServiceName,
 			ServiceBalancerAddress: "localhost:9090",
 		},
 	}

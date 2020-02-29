@@ -1,7 +1,7 @@
 package echo
 
 import (
-	protos "common/svcprotos/gen"
+	pb "common/protos/gen"
 	"context"
 	"fmt"
 	"github.com/pkg/errors"
@@ -9,14 +9,14 @@ import (
 )
 
 type Client interface {
-	SendEcho(message string) (*protos.EchoResponse, error)
+	SendEcho(message string) (*pb.EchoResponse, error)
 }
 
 type client struct {
 	serverAddress string
 	port          int
 	conn          *grpc.ClientConn
-	grpcClient    protos.EchoServiceClient
+	grpcClient    pb.EchoServiceClient
 }
 
 func NewClient(serverAddress string, port int) (Client, error) {
@@ -42,14 +42,14 @@ func (c *client) init() error {
 	}
 
 	c.conn = conn
-	c.grpcClient = protos.NewEchoServiceClient(conn)
+	c.grpcClient = pb.NewEchoServiceClient(conn)
 
 	return nil
 }
 
-func (c *client) SendEcho(message string) (*protos.EchoResponse, error) {
+func (c *client) SendEcho(message string) (*pb.EchoResponse, error) {
 	ctx := context.Background()
-	req := protos.EchoRequest{
+	req := pb.EchoRequest{
 		Message: message,
 	}
 

@@ -1,9 +1,9 @@
 package main
 
 import (
-	"common/discovery/domain"
-	"common/discovery/gateways"
-	protos "common/svcprotos/gen"
+	"common"
+	pb "common/protos/gen"
+	"common/sidecar"
 	"flag"
 	"google.golang.org/grpc"
 	"log"
@@ -26,21 +26,21 @@ func main() {
 
 	log.Printf("Starting PING-PONG server on port :%d", *appLocalPort)
 
-	address := domain.ToGRPCAddress("", uint32(*appLocalPort))
+	address := common.ToGRPCAddress("", uint32(*appLocalPort))
 	sock, err := net.Listen("tcp", address)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	controlAddress := domain.ToGRPCAddress("localhost", uint32(*controlPort))
-	balancerAddress := domain.ToGRPCAddress("localhost", uint32(*appBalancerPort))
-	localAddress := domain.ToGRPCAddress("localhost", uint32(*appLocalPort))
+	controlAddress := common.ToGRPCAddress("localhost", uint32(*controlPort))
+	balancerAddress := common.ToGRPCAddress("localhost", uint32(*appBalancerPort))
+	localAddress := common.ToGRPCAddress("localhost", uint32(*appLocalPort))
 
-	gateways.NewRegistrantService(controlAddress, domain.RegistryAddress, domain.PingPongServiceName, balancerAddress, localAddress)
+	sidecar.NewRegistrantService(controlAddress, common.RegistryAddress, common.PingPongServiceName, balancerAddress, localAddress)
 
 	grpcServer := grpc.NewServer()
 	pingPongService := usecases.NewPingPongService()
-	protos.RegisterPingPongServiceServer(grpcServer, pingPongService)
+	pb.RegisterPingPongServiceServer(grpcServer, pingPongService)
 
 	err = grpcServer.Serve(sock)
 	if err != nil {

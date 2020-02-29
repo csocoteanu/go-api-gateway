@@ -1,7 +1,7 @@
-package domain
+package common
 
 import (
-	discovery "common/discovery/domain/protos"
+	pb "common/protos/gen"
 	"fmt"
 	"github.com/pkg/errors"
 	"strings"
@@ -24,7 +24,7 @@ var (
 )
 
 // AggregateErrors aggregates errors in a single error
-func AggregateErrors(errs ...*discovery.Error) error {
+func AggregateErrors(errs ...*pb.Error) error {
 	var sb strings.Builder
 	for _, err := range errs {
 		sb.WriteString(fmt.Sprintf("[%d] %s;", err.Code, err.Message))

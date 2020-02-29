@@ -1,7 +1,6 @@
 package main
 
 import (
-	"common/discovery/gateways"
 	"flag"
 	"svc.discovery/usecases"
 )
@@ -16,7 +15,7 @@ func parseArgs() {
 func main() {
 	parseArgs()
 
-	registry := gateways.NewServiceRegistryServer("localhost", 8500)
+	registry := usecases.NewServiceRegistryServer("localhost", 8500)
 	registryInteractor := usecases.NewServiceRegistryInteractor(registry)
 
 	if useTCPLoadBalacing {
